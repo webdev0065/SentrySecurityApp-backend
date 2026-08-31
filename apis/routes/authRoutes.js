@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const admin = require('../../config/firebaseAdmin');
+const { getAuth } = require('firebase-admin/auth');
+require('../../config/firebaseAdmin'); // Firebase app initialize karne ke liye
 const User = require('../../data/models/User');
 
 // ===== Existing Login (email/mobile + password) =====
@@ -49,8 +50,7 @@ router.post('/login', async (req, res) => {
 });
 
 // ===== NEW: Firebase OTP Verify (Phone Login/Register) =====
-// router.post('/verify-otp', async (req, res) => {
-  router.post('/verify-firebase-otp', async (req, res) => {
+router.post('/verify-firebase-otp', async (req, res) => {
   const { idToken } = req.body;
 
   if (!idToken) {
@@ -59,7 +59,7 @@ router.post('/login', async (req, res) => {
 
   try {
     // Step 1: Firebase token verify karo
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await getAuth().verifyIdToken(idToken);
     const mobile_number = decodedToken.phone_number;
     const firebase_uid = decodedToken.uid;
 
