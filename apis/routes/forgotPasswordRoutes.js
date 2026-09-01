@@ -19,7 +19,9 @@ router.post('/forgot-password', async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiry = new Date(Date.now() + 10 * 60 * 1000); 
 
-        await User.setOtp(identifier, otp, expiry);
+        // Yahan 'identifier' ki jagah 'user.email' use karo — guaranteed match, kyunki
+        // user already DB se mil chuka hai upar wale query se
+        await User.setOtp(user.email, otp, expiry);
 
         const response = { message: 'OTP sent successfully' };
         if (process.env.NODE_ENV !== 'production') response.otp = otp;
@@ -31,20 +33,20 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // router.post('/verify-otp', async (req, res) => {
-    router.post('/verify-forgot-password-otp', async (req, res) => {
+router.post('/verify-forgot-password-otp', async (req, res) => {
     const { identifier, otp } = req.body;
-
     if (!identifier || !otp) {
         return res.status(400).json({ error: 'Identifier and OTP are required' });
     }
-
     try {
-        const user = await User.verifyOtp(identifier, otp);
-
+        const foundUser = await User.findByEmailOrMobileForLogin(identifier);
+        if (!foundUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+        const user = await User.verifyOtp(foundUser.email, otp);
         if (!user) {
             return res.status(400).json({ error: 'Invalid or expired OTP' });
         }
-
         res.json({ message: 'OTP verified successfully' });
     } catch (err) {
         console.error(err);
@@ -64,11 +66,13 @@ router.post('/reset-password', async (req, res) => {
     }
 
     try {
-        const user = await User.resetPassword(identifier, new_password);
+        const foundUser = await User.findByEmailOrMobileForLogin(identifier);
 
-        if (!user) {
+        if (!foundUser) {
             return res.status(404).json({ error: 'User not found' });
         }
+
+        await User.resetPassword(foundUser.email, new_password);
 
         res.json({ message: 'Password reset successfully' });
     } catch (err) {
