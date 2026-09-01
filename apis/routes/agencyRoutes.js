@@ -3,7 +3,7 @@ const router = express.Router();
 const Agency = require('../../data/models/Agency');
 const verifyToken = require('../middleware/authMiddleware');
 
-router.post('/details', verifyToken, async (req, res) => {
+router.post('/agency/details', verifyToken, async (req, res) => {
   try {
     const { agencyName, businessType, gstNumber, officeAddress, city, state, pincode } = req.body;
 
@@ -25,7 +25,7 @@ router.post('/details', verifyToken, async (req, res) => {
   }
 });
 
-router.get('/details', verifyToken, async (req, res) => {
+router.get('/agency/details', verifyToken, async (req, res) => {
   try {
     const agency = await Agency.findByUserId(req.user.id);
     if (!agency) return res.status(404).json({ success: false, message: 'Agency details not found' });

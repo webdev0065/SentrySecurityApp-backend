@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const admin = require('../../config/firebaseAdmin');
+const { getAuth } = require('firebase-admin/auth');
+require('../../config/firebaseAdmin'); // Firebase app initialize karne ke liye
 const User = require('../../data/models/User');
 
 // ===== Existing Login (email/mobile + password) =====
@@ -10,7 +11,9 @@ router.post('/login', async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return res.status(400).json({ error: 'Email/Mobile and password are required' });
+    return res
+      .status(400)
+      .json({ error: 'Email/Mobile and password are required' });
   }
 
   try {
@@ -29,7 +32,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, account_type: user.account_type },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '7d' },
     );
 
     res.json({
@@ -39,8 +42,8 @@ router.post('/login', async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
-        account_type: user.account_type
-      }
+        account_type: user.account_type,
+      },
     });
   } catch (err) {
     console.error(err);
@@ -49,8 +52,7 @@ router.post('/login', async (req, res) => {
 });
 
 // ===== NEW: Firebase OTP Verify (Phone Login/Register) =====
-// router.post('/verify-otp', async (req, res) => {
-  router.post('/verify-firebase-otp', async (req, res) => {
+router.post('/verify-firebase-otp', async (req, res) => {
   const { idToken } = req.body;
 
   if (!idToken) {
@@ -59,7 +61,7 @@ router.post('/login', async (req, res) => {
 
   try {
     // Step 1: Firebase token verify karo
-    const decodedToken = await admin.auth().verifyIdToken(idToken);
+    const decodedToken = await getAuth().verifyIdToken(idToken);
     const mobile_number = decodedToken.phone_number;
     const firebase_uid = decodedToken.uid;
 
@@ -75,7 +77,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, mobile_number, account_type: user.account_type },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '7d' },
     );
 
     res.json({
@@ -85,10 +87,9 @@ router.post('/login', async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         mobile_number,
-        account_type: user.account_type
-      }
+        account_type: user.account_type,
+      },
     });
-
   } catch (err) {
     console.error(err);
     res.status(401).json({ error: 'Invalid or expired OTP token' });

@@ -21,7 +21,9 @@ router.post('/forgot-password', async (req, res) => {
 
         await User.setOtp(identifier, otp, expiry);
 
-        res.json({ message: 'OTP sent successfully', otp });
+        const response = { message: 'OTP sent successfully' };
+        if (process.env.NODE_ENV !== 'production') response.otp = otp;
+        res.json(response);
     } catch (err) {
         console.error(err);
         res.status(500).json({ error: 'Server error' });
@@ -29,7 +31,7 @@ router.post('/forgot-password', async (req, res) => {
 });
 
 // router.post('/verify-otp', async (req, res) => {
-    router.post('/verify-firebase-otp', async (req, res) => {
+    router.post('/verify-forgot-password-otp', async (req, res) => {
     const { identifier, otp } = req.body;
 
     if (!identifier || !otp) {

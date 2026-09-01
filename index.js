@@ -1,5 +1,6 @@
 const express = require('express');
 const cors = require('cors');
+require('dotenv').config();
 const authRoutes = require('./apis/routes/authRoutes');
 const userRoutes = require('./apis/routes/userRoutes');
 const forgotPasswordRoutes = require('./apis/routes/forgotPasswordRoutes');
@@ -12,7 +13,11 @@ const app = express();
 app.use(cors()); 
 app.use(express.json());
 
-const PORT = 3000;
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'ok' });
+});
+
+const PORT = process.env.PORT || 3000;
 
 app.use('/api', authRoutes);
 app.use('/api', userRoutes);

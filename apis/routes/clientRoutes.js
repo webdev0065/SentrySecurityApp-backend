@@ -3,7 +3,7 @@ const router = express.Router();
 const Client = require('../../data/models/Client');
 const verifyToken = require('../middleware/authMiddleware');
 
-router.post('/details', verifyToken, async (req, res) => {
+router.post('/client/details', verifyToken, async (req, res) => {
   try {
     const { companyName, siteName, siteAddress, city, state, pincode } = req.body;
 
@@ -32,7 +32,7 @@ router.post('/details', verifyToken, async (req, res) => {
   }
 });
 
-router.get('/details', verifyToken, async (req, res) => {
+router.get('/client/details', verifyToken, async (req, res) => {
   try {
     const client = await Client.findByUserId(req.user.id);
     if (!client) {
