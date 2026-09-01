@@ -19,8 +19,6 @@ router.post('/forgot-password', async (req, res) => {
         const otp = Math.floor(100000 + Math.random() * 900000).toString();
         const expiry = new Date(Date.now() + 10 * 60 * 1000); 
 
-        // Yahan 'identifier' ki jagah 'user.email' use karo — guaranteed match, kyunki
-        // user already DB se mil chuka hai upar wale query se
         await User.setOtp(user.email, otp, expiry);
 
         const response = { message: 'OTP sent successfully' };

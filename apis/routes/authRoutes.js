@@ -3,10 +3,9 @@ const router = express.Router();
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 const { getAuth } = require('firebase-admin/auth');
-require('../../config/firebaseAdmin'); // Firebase app initialize karne ke liye
+require('../../config/firebaseAdmin'); 
 const User = require('../../data/models/User');
 
-// ===== Existing Login (email/mobile + password) =====
 router.post('/login', async (req, res) => {
   const { identifier, password } = req.body;
 
@@ -51,7 +50,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// ===== NEW: Firebase OTP Verify (Phone Login/Register) =====
 router.post('/verify-firebase-otp', async (req, res) => {
   const { idToken } = req.body;
 
@@ -60,20 +58,16 @@ router.post('/verify-firebase-otp', async (req, res) => {
   }
 
   try {
-    // Step 1: Firebase token verify karo
     const decodedToken = await getAuth().verifyIdToken(idToken);
     const mobile_number = decodedToken.phone_number;
     const firebase_uid = decodedToken.uid;
 
-    // Step 2: DB mein number check karo
     let user = await User.findByPhoneNumber(mobile_number);
 
-    // Step 3: Agar user nahi mila, naya bana do
     if (!user) {
       user = await User.createFromPhone(mobile_number, firebase_uid);
     }
 
-    // Step 4: Apna JWT token generate karo
     const token = jwt.sign(
       { id: user.id, mobile_number, account_type: user.account_type },
       process.env.JWT_SECRET,
