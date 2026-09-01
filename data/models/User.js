@@ -63,7 +63,6 @@ class User {
     return result.rows[0];
   }
 
-  // ===== NAYE METHODS (Firebase OTP ke liye) =====
   static async findByPhoneNumber(mobile_number) {
     const result = await pool.query(
       'SELECT * FROM users WHERE mobile_number = $1',
