@@ -14,7 +14,7 @@ router.post('/send-otp', async (req, res) => {
   }
 });
 
-    router.post('/verify-firebase-otp', async (req, res) => {
+    router.post('/verify-mobile-otp', async (req, res) => {
   const { phoneNumber, code } = req.body;
   try {
     const check = await client.verify.v2

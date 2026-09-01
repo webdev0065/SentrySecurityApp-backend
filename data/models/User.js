@@ -14,7 +14,7 @@ class User {
     const hashedPassword = await bcrypt.hash(password, 10);
     const result = await pool.query(
       `INSERT INTO users (full_name, mobile_number, email, password, account_type) 
-       VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, email, account_type, created_at`,
+       VALUES ($1, $2, $3, $4, $5) RETURNING id, full_name, mobile_number, email, account_type, created_at`,
       [full_name, mobile_number, email, hashedPassword, account_type]
     );
     return result.rows[0];
@@ -26,9 +26,11 @@ class User {
   }
 
   static async findByEmailOrMobileForLogin(identifier) {
+    const digits = String(identifier).replace(/\D/g, '');
+    const normalizedMobile = digits.length === 10 ? `+91${digits}` : identifier;
     const result = await pool.query(
-      'SELECT * FROM users WHERE email = $1 OR mobile_number = $1',
-      [identifier]
+      'SELECT * FROM users WHERE email = $1 OR mobile_number = $1 OR mobile_number = $2',
+      [identifier, normalizedMobile]
     );
     return result.rows[0];
   }

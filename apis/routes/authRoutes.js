@@ -11,7 +11,9 @@ router.post('/login', async (req, res) => {
   const { identifier, password } = req.body;
 
   if (!identifier || !password) {
-    return res.status(400).json({ error: 'Email/Mobile and password are required' });
+    return res
+      .status(400)
+      .json({ error: 'Email/Mobile and password are required' });
   }
 
   try {
@@ -30,7 +32,7 @@ router.post('/login', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, email: user.email, account_type: user.account_type },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '7d' },
     );
 
     res.json({
@@ -40,8 +42,8 @@ router.post('/login', async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         email: user.email,
-        account_type: user.account_type
-      }
+        account_type: user.account_type,
+      },
     });
   } catch (err) {
     console.error(err);
@@ -75,7 +77,7 @@ router.post('/verify-firebase-otp', async (req, res) => {
     const token = jwt.sign(
       { id: user.id, mobile_number, account_type: user.account_type },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: '7d' },
     );
 
     res.json({
@@ -85,10 +87,9 @@ router.post('/verify-firebase-otp', async (req, res) => {
         id: user.id,
         full_name: user.full_name,
         mobile_number,
-        account_type: user.account_type
-      }
+        account_type: user.account_type,
+      },
     });
-
   } catch (err) {
     console.error(err);
     res.status(401).json({ error: 'Invalid or expired OTP token' });
