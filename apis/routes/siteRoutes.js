@@ -60,4 +60,57 @@ router.get('/sites', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/sites/:id', verifyToken, async (req, res) => {
+  try {
+    const site = await Site.findById(req.params.id, req.user.id);
+    if (!site) {
+      return res.status(404).json({ success: false, message: 'Site not found' });
+    }
+    return res.status(200).json({ success: true, data: site });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/sites/:id', verifyToken, async (req, res) => {
+  try {
+    let { siteName, siteAddress, city, state, latitude, longitude, coveragePlan, startTime, endTime } = req.body;
+
+    const existing = await Site.findById(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Site not found' });
+    }
+
+    if (coveragePlan && !VALID_COVERAGE_PLANS.includes(coveragePlan)) {
+      return res.status(400).json({ success: false, message: 'coveragePlan must be day_shift, night_watch or 24x7' });
+    }
+
+    const addressChanged = siteAddress && siteAddress !== existing.siteAddress;
+    if ((!latitude || !longitude) && addressChanged) {
+      const geo = await geocodeAddress(`${siteAddress}, ${city || existing.city || ''}, ${state || existing.state || ''}`);
+      latitude = geo.latitude;
+      longitude = geo.longitude;
+    }
+
+    const updates = {};
+    if (siteName !== undefined) updates.siteName = siteName;
+    if (siteAddress !== undefined) updates.siteAddress = siteAddress;
+    if (city !== undefined) updates.city = city;
+    if (state !== undefined) updates.state = state;
+    if (latitude !== undefined && latitude !== null) updates.latitude = latitude;
+    if (longitude !== undefined && longitude !== null) updates.longitude = longitude;
+    if (coveragePlan !== undefined) updates.coveragePlan = coveragePlan;
+    if (startTime !== undefined) updates.startTime = startTime;
+    if (endTime !== undefined) updates.endTime = endTime;
+
+    const updated = await Site.update(req.params.id, req.user.id, updates);
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

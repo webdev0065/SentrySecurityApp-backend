@@ -82,4 +82,50 @@ router.get('/incidents/:id', verifyToken, async (req, res) => {
   }
 });
 
+router.put('/incidents/:id', verifyToken, (req, res, next) => {
+  upload.array('images', 5)(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    next();
+  });
+}, async (req, res) => {
+  try {
+    const { severity, notes } = req.body;
+
+    const existing = await Incident.findById(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Incident not found' });
+    }
+
+    if (severity && !VALID_SEVERITIES.includes(String(severity).toLowerCase())) {
+      return res.status(400).json({ success: false, message: 'severity must be low, medium or high' });
+    }
+
+    const updates = {};
+    if (severity) updates.severity = severity.toLowerCase();
+    if (notes !== undefined) updates.notes = notes;
+
+    if (Object.keys(updates).length > 0) {
+      await Incident.update(req.params.id, req.user.id, updates);
+    }
+
+    if (req.files && req.files.length > 0) {
+      const imageUrls = req.files.map(file => `/uploads/incidents/${file.filename}`);
+      await Incident.addImages(existing.id, imageUrls);
+    }
+
+    const updated = await Incident.findById(req.params.id, req.user.id);
+    const images = await Incident.getImages(updated.id);
+
+    return res.status(200).json({
+      success: true,
+      data: { ...updated, incident_code: `INC-${updated.id}`, images }
+    });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 module.exports = router;

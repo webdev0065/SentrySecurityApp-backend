@@ -49,7 +49,7 @@ router.post('/guards', verifyToken, async (req, res) => {
 
     return res.status(201).json({ success: true, data: { ...guard, guard_code: `SG-${guard.id}` } });
   } catch (err) {
-    if (err.code === '23505') { // unique violation (duplicate mobile/email)
+    if (err.code === '23505') { 
       return res.status(409).json({ success: false, message: 'Mobile number already registered' });
     }
     console.error(err);
