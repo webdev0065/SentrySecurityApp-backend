@@ -11,7 +11,6 @@ const otpRoutes = require('./apis/routes/otpRoutes');
 const siteRoutes = require('./apis/routes/siteRoutes');
 const incidentRoutes = require('./apis/routes/incidentRoutes');
 const guardRoutes = require('./apis/routes/guardRoutes');
-
 const app = express();
 
 app.use(cors()); 
@@ -35,6 +34,8 @@ app.use('/api/agency', siteRoutes);
 app.use('/api/agency', incidentRoutes);
 app.use('/api/agency', guardRoutes);
 
+
+app.use('/api', require('./apis/routes/profilePhoto'));   
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

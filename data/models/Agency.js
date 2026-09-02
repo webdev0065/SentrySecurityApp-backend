@@ -9,6 +9,13 @@ class Agency {
     );
     return result.rows[0];
   }
+  static async updateProfilePhoto(userId, photoUrl) {
+  const result = await pool.query(
+    `UPDATE agencies SET profile_photo_url = $1 WHERE user_id = $2 RETURNING *`,
+    [photoUrl, userId]
+  );
+  return result.rows[0];
+}
 static async update(userId, { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode }) {
   const result = await pool.query(
     `UPDATE agencies 

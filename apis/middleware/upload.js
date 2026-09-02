@@ -1,7 +1,8 @@
 const multer = require('multer');
 const path = require('path');
 
-const storage = multer.diskStorage({
+// ---- Incident images (existing, koi change nahi) ----
+const incidentStorage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, path.join(__dirname, '../../uploads/incidents'));
   },
@@ -26,9 +27,27 @@ const fileFilter = (req, file, cb) => {
 };
 
 const upload = multer({
-  storage,
+  storage: incidentStorage,
   fileFilter,
-  limits: { fileSize: 10 * 1024 * 1024, files: 5 } 
+  limits: { fileSize: 10 * 1024 * 1024, files: 5 }
+});
+
+// ---- NAYA: Profile photo (agency) ----
+const profilePhotoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../../uploads/profile-photos'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `agency_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const uploadProfilePhoto = multer({
+  storage: profilePhotoStorage,
+  fileFilter,
+  limits: { fileSize: 5 * 1024 * 1024, files: 1 }
 });
 
 module.exports = upload;
+module.exports.uploadProfilePhoto = uploadProfilePhoto;
