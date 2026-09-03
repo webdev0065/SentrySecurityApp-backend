@@ -14,6 +14,13 @@ class Client {
     const result = await pool.query('SELECT * FROM clients WHERE user_id = $1', [userId]);
     return result.rows[0];
   }
-}
 
+  static async updateAvatar(userId, avatarUrl) {
+    const result = await pool.query(
+      `UPDATE clients SET avatar_url = $1 WHERE user_id = $2 RETURNING *`,
+      [avatarUrl, userId]
+    );
+    return result.rows[0];
+  }
+}
 module.exports = Client;
