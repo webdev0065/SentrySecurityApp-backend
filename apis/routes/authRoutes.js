@@ -6,50 +6,73 @@ const { getAuth } = require('firebase-admin/auth');
 require('../../config/firebaseAdmin'); 
 const User = require('../../data/models/User');
 
+// router.post('/login', async (req, res) => {
+//   const { identifier, password } = req.body;
+
+//   if (!identifier || !password) {
+//     return res
+//       .status(400)
+//       .json({ error: 'Email/Mobile and password are required' });
+//   }
+
+//   try {
+//     const user = await User.findByEmailOrMobileForLogin(identifier);
+
+//     if (!user) {
+//       return res.status(401).json({ error: 'Invalid credentials' });
+//     }
+
+//     const isPasswordValid = await bcrypt.compare(password, user.password);
+
+//     if (!isPasswordValid) {
+//       return res.status(401).json({ error: 'Invalid credentials' });
+//     }
+
+//     const token = jwt.sign(
+//       { id: user.id, email: user.email, account_type: user.account_type },
+//       process.env.JWT_SECRET,
+//       { expiresIn: '7d' },
+//     );
+
+//     res.json({
+//       message: 'Login successful',
+//       token,
+//       user: {
+//         id: user.id,
+//         full_name: user.full_name,
+//         email: user.email,
+//         account_type: user.account_type,
+//       },
+//     });
+//   } catch (err) {
+//     console.error(err);
+//     res.status(500).json({ error: 'Server error' });
+//   }
+// });
 router.post('/login', async (req, res) => {
-  const { identifier, password } = req.body;
-
-  if (!identifier || !password) {
-    return res
-      .status(400)
-      .json({ error: 'Email/Mobile and password are required' });
-  }
-
   try {
-    const user = await User.findByEmailOrMobileForLogin(identifier);
+    const { email, password } = req.body;
+    const admin = await SuperAdmin.findByEmail(email);
+    if (!admin) return res.status(401).json({ error: 'Invalid credentials' });
 
-    if (!user) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
-
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-
-    if (!isPasswordValid) {
-      return res.status(401).json({ error: 'Invalid credentials' });
-    }
+    const isMatch = await bcrypt.compare(password, admin.password);
+    if (!isMatch) return res.status(401).json({ error: 'Invalid credentials' });
 
     const token = jwt.sign(
-      { id: user.id, email: user.email, account_type: user.account_type },
+      { id: admin.id, account_id: admin.account_id, account_type: 'superAdmin' },
       process.env.JWT_SECRET,
-      { expiresIn: '7d' },
+      { expiresIn: '1d' }
     );
 
     res.json({
-      message: 'Login successful',
+      success: true,
       token,
-      user: {
-        id: user.id,
-        full_name: user.full_name,
-        email: user.email,
-        account_type: user.account_type,
-      },
+      admin: { id: admin.id, full_name: admin.full_name, email: admin.email, account_type: 'superAdmin' }
     });
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ error: 'Server error' });
+    res.status(500).json({ error: err.message });
   }
 });
-
 router.post('/verify-firebase-otp', async (req, res) => {
   const { idToken } = req.body;
 

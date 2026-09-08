@@ -36,7 +36,7 @@ app.use('/api/agency', siteRoutes);
 app.use('/api/agency', incidentRoutes);
 app.use('/api/agency', guardRoutes);
 app.use('/apis', coverageRoutes);
-
+app.use('/api/superadmin', require('./apis/routes/superAdminRoutes'));
 app.use('/api', require('./apis/routes/profilePhoto'));   
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
