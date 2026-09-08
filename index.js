@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
+
 const authRoutes = require('./apis/routes/authRoutes');
 const userRoutes = require('./apis/routes/userRoutes');
 const forgotPasswordRoutes = require('./apis/routes/forgotPasswordRoutes');
@@ -38,6 +39,7 @@ app.use('/api/agency', guardRoutes);
 app.use('/apis', coverageRoutes);
 app.use('/api/superadmin', require('./apis/routes/superAdminRoutes'));
 app.use('/api', require('./apis/routes/profilePhoto'));   
+
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
 });

@@ -5,7 +5,7 @@ const jwt = require('jsonwebtoken');
 const { getAuth } = require('firebase-admin/auth');
 require('../../config/firebaseAdmin'); 
 const User = require('../../data/models/User');
-
+const SuperAdmin = require('../../data/models/SuperAdmin')
 // router.post('/login', async (req, res) => {
 //   const { identifier, password } = req.body;
 
