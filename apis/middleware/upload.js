@@ -36,7 +36,8 @@ const profilePhotoStorage = multer.diskStorage({
     cb(null, path.join(__dirname, '../../uploads/profile-photos'));
   },
   filename: (req, file, cb) => {
-    const uniqueName = `agency_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`;
+    const rolePrefix = req.user?.role || 'user';
+    const uniqueName = `${rolePrefix}_${req.user.id}_${Date.now()}${path.extname(file.originalname)}`;
     cb(null, uniqueName);
   }
 });
