@@ -13,6 +13,10 @@ const siteRoutes = require('./apis/routes/siteRoutes');
 const incidentRoutes = require('./apis/routes/incidentRoutes');
 const guardRoutes = require('./apis/routes/guardRoutes');
 const coverageRoutes = require('./apis/routes/coverageRoutes');
+const superAdminRoutes = require('./apis/routes/superAdminRoutes');
+const agencyApprovalRoutes = require('./apis/routes/agencyApprovalRoutes');
+const notificationRoutes = require('./apis/routes/notificationRoutes');
+const profilePhotoRoutes = require('./apis/routes/profilePhoto');
 
 const app = express();
 
@@ -37,8 +41,10 @@ app.use('/api/agency', siteRoutes);
 app.use('/api/agency', incidentRoutes);
 app.use('/api/agency', guardRoutes);
 app.use('/api/agency', coverageRoutes);
-app.use('/api/superadmin', require('./apis/routes/superAdminRoutes'));
-app.use('/api', require('./apis/routes/profilePhoto'));   
+app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/superadmin', agencyApprovalRoutes);
+app.use('/api', notificationRoutes);
+app.use('/api', profilePhotoRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);

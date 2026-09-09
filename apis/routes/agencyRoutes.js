@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Agency = require('../../data/models/Agency');
+const Notification = require('../../data/models/Notification');
 const verifyToken = require('../middleware/authMiddleware');
 
 router.post('/agency/details', verifyToken, async (req, res) => {
@@ -16,6 +17,15 @@ router.post('/agency/details', verifyToken, async (req, res) => {
 
     const agency = await Agency.create({
       userId: req.user.id, agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode
+    });
+
+    await Notification.create({
+      type: 'AGENCY_APPROVAL_REQUEST',
+      title: 'New agency awaiting approval',
+      message: `${agencyName} has submitted details and needs review.`,
+      referenceType: 'agency',
+      referenceId: agency.id,
+      targetRole: 'superAdmin',
     });
 
     return res.status(201).json({ success: true, data: agency });
