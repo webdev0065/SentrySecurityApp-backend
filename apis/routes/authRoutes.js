@@ -8,7 +8,6 @@ const User = require('../../data/models/User');
 const SuperAdmin = require('../../data/models/SuperAdmin');
 const pool = require('../../db');
 
-// Unified Login Route (Admin & Regular Users dono ke liye ek hi URL)
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -69,7 +68,6 @@ router.post('/login', async (req, res) => {
   }
 });
 
-// Firebase OTP Verification Route
 router.post('/verify-firebase-otp', async (req, res) => {
   const { idToken } = req.body;
 
@@ -110,7 +108,6 @@ router.post('/verify-firebase-otp', async (req, res) => {
   }
 });
 
-// Register with Dummy OTP Route
 router.post('/register-with-otp', async (req, res) => {
   try {
     const { otp, mobile_number, full_name, email, password, account_type, profile } = req.body;

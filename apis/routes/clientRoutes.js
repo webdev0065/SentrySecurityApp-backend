@@ -6,7 +6,6 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
-// Ensure upload folder exists (creates it if missing)
 const avatarDir = path.join(__dirname, '../../uploads/clients/avatars');
 if (!fs.existsSync(avatarDir)) {
   fs.mkdirSync(avatarDir, { recursive: true });

@@ -7,7 +7,7 @@ router.post('/agency/details', verifyToken, async (req, res) => {
   try {
     const { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode } = req.body;
 
-    if (!agencyName || !businessType || !officeAddress || !city || !state || !pincode) {
+    if (!agencyName || !businessType || !officeAddress || !city || !state || !district || !pincode) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
     if (!/^\d{6}$/.test(pincode)) {
@@ -40,7 +40,7 @@ router.put('/agency/details', verifyToken, async (req, res) => {
   try {
     const { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode } = req.body;
 
-    if (!agencyName || !businessType || !officeAddress || !city || !state || !pincode) {
+    if (!agencyName || !businessType || !officeAddress || !city || !state || !district || !pincode) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
     if (!/^\d{6}$/.test(pincode)) {
