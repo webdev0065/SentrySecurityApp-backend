@@ -43,14 +43,14 @@ router.post('/complete-registration', async (req, res) => {
     const user = userResult.rows[0];
 
     if (account_type === 'agency') {
-      const { agencyName, businessType, gstNumber, officeAddress, city, state, pincode } = profile;
-      if (!agencyName || !businessType || !officeAddress || !city || !state || !/^\d{6}$/.test(pincode || '')) {
+      const { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode } = profile;
+      if (!agencyName || !businessType || !officeAddress || !city || !state || !district || !/^\d{6}$/.test(pincode || '')) {
         throw new Error('Invalid agency details');
       }
       await client.query(
-        `INSERT INTO agencies (user_id, agency_name, business_type, gst_number, office_address, city, state, pincode)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
-        [user.id, agencyName, businessType, gstNumber || null, officeAddress, city, state, pincode]
+        `INSERT INTO agencies (user_id, agency_name, business_type, gst_number, office_address, city, state, district, pincode)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [user.id, agencyName, businessType, gstNumber || null, officeAddress, city, state, district, pincode]
       );
     } else {
       const { companyName, siteName, siteAddress, city, state, pincode } = profile;

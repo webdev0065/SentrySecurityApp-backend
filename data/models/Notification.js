@@ -25,10 +25,42 @@ class Notification {
     return result.rows;
   }
 
-  static async markAsRead(id) {
+  static async countUnreadForRole(targetRole) {
     const result = await pool.query(
-      `UPDATE notifications SET status = 'read', updated_at = NOW() WHERE id = $1 RETURNING *`,
-      [id]
+      `SELECT COUNT(*)::int AS count
+       FROM notifications
+       WHERE target_role = $1 AND status = 'unread'`,
+      [targetRole]
+    );
+    return result.rows[0].count;
+  }
+
+  static async markAsRead(id, targetRole) {
+    const result = await pool.query(
+      `UPDATE notifications
+       SET status = 'read', updated_at = NOW()
+       WHERE id = $1 AND target_role = $2
+       RETURNING *`,
+      [id, targetRole]
+    );
+    return result.rows[0];
+  }
+
+  static async markAllAsRead(targetRole) {
+    await pool.query(
+      `UPDATE notifications
+       SET status = 'read', updated_at = NOW()
+       WHERE target_role = $1 AND status = 'unread'`,
+      [targetRole]
+    );
+  }
+
+  static async deleteById(id, targetRole) {
+    const result = await pool.query(
+      `DELETE FROM notifications
+       WHERE id = $1 AND target_role = $2
+       RETURNING id`,
+      [id, targetRole]
     );
     return result.rows[0];
   }

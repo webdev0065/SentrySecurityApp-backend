@@ -23,7 +23,7 @@ router.get('/notifications/unread-count', authMiddleware, async (req, res) => {
 
 router.put('/notifications/:id/read', authMiddleware, async (req, res) => {
   try {
-    const notification = await Notification.markAsRead(req.params.id);
+    const notification = await Notification.markAsRead(req.params.id, req.user.account_type);
     if (!notification) return res.status(404).json({ error: 'Not found' });
     res.json(notification);
   } catch (err) {
@@ -42,7 +42,8 @@ router.put('/notifications/read-all', authMiddleware, async (req, res) => {
 
 router.delete('/notifications/:id', authMiddleware, async (req, res) => {
   try {
-    await Notification.deleteById(req.params.id);
+    const notification = await Notification.deleteById(req.params.id, req.user.account_type);
+    if (!notification) return res.status(404).json({ error: 'Not found' });
     res.json({ success: true, message: 'Notification deleted' });
   } catch (err) {
     res.status(500).json({ error: err.message });
