@@ -40,6 +40,12 @@ router.post('/login', async (req, res) => {
       const user = userResult.rows[0];
       const isMatch = await bcrypt.compare(password, user.password);
       if (isMatch) {
+        if (user.account_type === 'agency') {
+          const agency = await pool.query('SELECT status FROM agencies WHERE user_id = $1', [user.id]);
+          if (agency.rows[0]?.status !== 'approved') {
+            return res.status(403).json({ error: agency.rows[0]?.status === 'inactive' ? 'Your agency account is inactive. Contact the Super Admin to reactivate it.' : 'Your agency account is awaiting Super Admin approval. You can log in once approved.', code: 'AGENCY_APPROVAL_REQUIRED' });
+          }
+        }
         const token = jwt.sign(
           { id: user.id, mobile_number: user.mobile_number, account_type: user.account_type },
           process.env.JWT_SECRET,

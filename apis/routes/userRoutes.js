@@ -47,10 +47,15 @@ router.post('/complete-registration', async (req, res) => {
       if (!agencyName || !businessType || !officeAddress || !city || !state || !district || !/^\d{6}$/.test(pincode || '')) {
         throw new Error('Invalid agency details');
       }
-      await client.query(
-        `INSERT INTO agencies (user_id, agency_name, business_type, gst_number, office_address, city, state, district, pincode)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      const agencyResult = await client.query(
+        `INSERT INTO agencies (user_id, agency_name, business_type, gst_number, office_address, city, state, district, pincode, status)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending') RETURNING id`,
         [user.id, agencyName, businessType, gstNumber || null, officeAddress, city, state, district, pincode]
+      );
+      await client.query(
+        `INSERT INTO notifications (type, title, message, reference_type, reference_id, target_role, status)
+         VALUES ('AGENCY_APPROVAL_REQUEST', 'New agency awaiting approval', $1, 'agency', $2, 'superAdmin', 'unread')`,
+        [`${agencyName} has submitted details and needs review.`, agencyResult.rows[0].id]
       );
     } else {
       const { companyName, siteName, siteAddress, city, state, pincode } = profile;
@@ -65,6 +70,9 @@ router.post('/complete-registration', async (req, res) => {
     }
 
     await client.query('COMMIT');
+    if (account_type === 'agency') {
+      return res.status(201).json({ message: 'Account created. Awaiting Super Admin approval.', approval_status: 'pending', user });
+    }
     const token = jwt.sign(
       { id: user.id, email: user.email, account_type: user.account_type },
       process.env.JWT_SECRET,
