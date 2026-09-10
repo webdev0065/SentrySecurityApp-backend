@@ -110,5 +110,35 @@ router.get('/client/details', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+router.patch('/client/details', verifyToken, async (req, res) => {
+  try {
+    const { companyName, siteName, siteAddress, city, state, pincode } = req.body;
 
+    const updates = {};
+    if (companyName !== undefined) updates.companyName = companyName;
+    if (siteName !== undefined) updates.siteName = siteName;
+    if (siteAddress !== undefined) updates.siteAddress = siteAddress;
+    if (city !== undefined) updates.city = city;
+    if (state !== undefined) updates.state = state;
+    if (pincode !== undefined) updates.pincode = pincode;
+
+    if (Object.keys(updates).length === 0) {
+      return res.status(400).json({ success: false, message: 'No fields provided to update' });
+    }
+
+    if (updates.pincode !== undefined && !/^\d{6}$/.test(updates.pincode)) {
+      return res.status(400).json({ success: false, message: 'Pincode must be 6 digits' });
+    }
+
+    const updated = await Client.updateDetails(req.user.id, updates);
+    if (!updated) {
+      return res.status(404).json({ success: false, message: 'Client not found' });
+    }
+
+    return res.status(200).json({ success: true, data: updated });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 module.exports = router;
