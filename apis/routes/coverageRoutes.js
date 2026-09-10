@@ -8,14 +8,12 @@ const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'assigned', 'comple
 
 router.post('/coverage-request', verifyToken, async (req, res) => {
   try {
-    const { eventName, state, district, city, pincode, siteLocation, guardsNeeded, notes } = req.body;
+    const { eventName, state, district, city, siteLocation, guardsNeeded, notes } = req.body;
 
-    if (!state || !district || !city || !pincode || !siteLocation) {
+    if (!state || !district || !city || !siteLocation) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
     }
-    if (!/^\d{6}$/.test(pincode)) {
-      return res.status(400).json({ success: false, message: 'Pincode must be 6 digits' });
-    }
+
     const guards = Number(guardsNeeded) || 1;
     if (guards < 1) {
       return res.status(400).json({ success: false, message: 'guardsNeeded must be at least 1' });
@@ -32,7 +30,6 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
       state,
       district,
       city,
-      pincode,
       siteLocation,
       guardsNeeded: guards,
       notes: notes || null,
@@ -44,7 +41,6 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
-
 router.get('/coverage-request', verifyToken, async (req, res) => {
   try {
     const client = await Client.findByUserId(req.user.id);

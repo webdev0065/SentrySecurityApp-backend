@@ -1,12 +1,12 @@
 const pool = require('../../db');
 
 class CoverageRequest {
-  static async create({ clientId, eventName, state, district, city, pincode, siteLocation, guardsNeeded, notes }) {
+   static async create({ clientId, eventName, state, district, city, siteLocation, guardsNeeded, notes }) {
     const result = await pool.query(
       `INSERT INTO coverage_requests
-        (client_id, event_name, state, district, city, pincode, site_location, guards_needed, notes)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [clientId, eventName, state, district, city, pincode, siteLocation, guardsNeeded, notes]
+        (client_id, event_name, state, district, city, site_location, guards_needed, notes)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *`,
+      [clientId, eventName, state, district, city, siteLocation, guardsNeeded, notes]
     );
     return result.rows[0];
   }

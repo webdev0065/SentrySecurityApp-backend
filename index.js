@@ -40,7 +40,7 @@ app.use('/api', otpRoutes);
 app.use('/api/agency', siteRoutes);
 app.use('/api/agency', incidentRoutes);
 app.use('/api/agency', guardRoutes);
-app.use('/api/agency', coverageRoutes);
+app.use('/api/client', coverageRoutes);
 app.use('/api/superadmin', superAdminRoutes);
 app.use('/api/superadmin', agencyApprovalRoutes);
 app.use('/api', notificationRoutes);
