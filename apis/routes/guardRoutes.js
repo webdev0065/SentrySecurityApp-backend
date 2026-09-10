@@ -20,6 +20,12 @@ function isValidEmail(email) {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+function isValidDate(value) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const date = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value;
+}
+
 router.post('/guards', verifyToken, async (req, res) => {
   try {
     const {
@@ -28,8 +34,8 @@ router.post('/guards', verifyToken, async (req, res) => {
       basicSalary, allowances, address, age, gender
     } = req.body;
 
-    if (!fullName || !mobileNumber || !email || !password || !joiningDate) {
-      return res.status(400).json({ success: false, message: 'fullName, mobileNumber, email, password and joiningDate are required' });
+    if (!fullName || !mobileNumber || !email || !password || !joiningDate || !siteId || !coveragePlan || !basicSalary || !String(address || '').trim() || !gender) {
+      return res.status(400).json({ success: false, message: 'All fields except age and allowances are required' });
     }
     if (!isValidEmail(email)) {
       return res.status(400).json({ success: false, message: 'A valid email is required' });
@@ -40,12 +46,21 @@ router.post('/guards', verifyToken, async (req, res) => {
     if (coveragePlan && !VALID_COVERAGE_PLANS.includes(coveragePlan)) {
       return res.status(400).json({ success: false, message: 'coveragePlan must be day_shift, night_watch or 24x7' });
     }
+    if (!isValidDate(joiningDate)) {
+      return res.status(400).json({ success: false, message: 'joiningDate must be a valid date in YYYY-MM-DD format' });
+    }
+    if (Number(basicSalary) <= 0 || Number(basicSalary) > 99999999.99 || (allowances != null && (Number(allowances) < 0 || Number(allowances) > 99999999.99))) {
+      return res.status(400).json({ success: false, message: 'basicSalary must be positive and allowances cannot be negative' });
+    }
     if (coveragePlan !== '24x7') {
       if (!shiftHours || !VALID_SHIFT_HOURS.includes(Number(shiftHours))) {
         return res.status(400).json({ success: false, message: 'shiftHours must be 8 or 12 for day_shift/night_watch' });
       }
+      if (!startTime || !endTime) {
+        return res.status(400).json({ success: false, message: 'startTime and endTime are required for day_shift/night_watch' });
+      }
     }
-    if (gender && !VALID_GENDERS.includes(gender)) {
+    if (!VALID_GENDERS.includes(gender)) {
       return res.status(400).json({ success: false, message: 'gender must be male, female or other' });
     }
     if (age != null && (isNaN(age) || age < 18 || age > 65)) {
@@ -53,7 +68,7 @@ router.post('/guards', verifyToken, async (req, res) => {
     }
 
     const normalizedMobile = normalizeMobile(mobileNumber);
-    if (normalizedMobile.length !== 13) {
+    if (!/^\+91[6-9]\d{9}$/.test(normalizedMobile)) {
       return res.status(400).json({ success: false, message: 'A valid 10-digit mobile number is required' });
     }
 
