@@ -16,6 +16,14 @@ class Agency {
     );
     return result.rows[0];
   }
+   static async isApprovedForDistrict(agencyId, district) {
+    const result = await pool.query(
+      `SELECT id FROM agencies WHERE id = $1 AND district = $2 AND status = 'approved'`,
+      [agencyId, district]
+    );
+    return result.rows.length > 0;
+  }
+
   static async update(userId, { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode }) {
     const result = await pool.query(
       `UPDATE agencies 

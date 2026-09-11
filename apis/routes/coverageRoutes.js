@@ -24,7 +24,7 @@ router.get('/available-agencies', verifyToken, async (req, res) => {
 
 router.post('/coverage-request', verifyToken, async (req, res) => {
   try {
-    const { eventName, state, district, city, siteLocation, guardsNeeded, notes } = req.body;
+    const { eventName, state, district, city, siteLocation, guardsNeeded, notes, agencyId } = req.body;
 
     if (!state || !district || !city || !siteLocation) {
       return res.status(400).json({ success: false, message: 'Missing required fields' });
@@ -33,6 +33,15 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
     const guards = Number(guardsNeeded) || 1;
     if (guards < 1) {
       return res.status(400).json({ success: false, message: 'guardsNeeded must be at least 1' });
+    }
+
+    let selectedAgencyId = null;
+    if (agencyId) {
+      const isValid = await Agency.isApprovedForDistrict(agencyId, district);
+      if (!isValid) {
+        return res.status(400).json({ success: false, message: 'Selected agency is not available for this district' });
+      }
+      selectedAgencyId = agencyId;
     }
 
     const client = await Client.findByUserId(req.user.id);
@@ -49,6 +58,7 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
       siteLocation,
       guardsNeeded: guards,
       notes: notes || null,
+      selectedAgencyId,
     });
 
     return res.status(201).json({ success: true, data: request });
