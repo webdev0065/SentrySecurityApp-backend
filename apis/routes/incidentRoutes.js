@@ -2,8 +2,11 @@ const express = require('express');
 const router = express.Router();
 const Incident = require('../../data/models/Incident');
 const Site = require('../../data/models/Site');
+const Notification = require('../../data/models/Notification');
 const verifyToken = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
+const { notifyAgency } = require('../utils/notifyHelper');
+const { scheduleIncidentSoundReminders, cancelIncidentSoundReminders } = require('../../jobs/notificationSoundScheduler');
 
 const VALID_SEVERITIES = ['low', 'medium', 'high'];
 
@@ -43,6 +46,11 @@ router.post('/incidents', verifyToken, (req, res, next) => {
       images = await Incident.addImages(incident.id, imageUrls);
     }
 
+    // 👇 NAYA ADDITION — guard ke incident report karte hi agency ko notify + sound reminders start
+    // ⚠️ site.agencyId — Site.js me actual field name confirm karke yahan match karo
+    await notifyAgency(site.agencyId, incident, `New ${severity} severity incident reported at ${site.site_name}`);
+    scheduleIncidentSoundReminders(incident.id);
+
     return res.status(201).json({
       success: true,
       data: { ...incident, incident_code: `INC-${incident.id}`, site_name: site.site_name, images }
@@ -62,6 +70,24 @@ router.get('/incidents', verifyToken, async (req, res) => {
       images: await Incident.getImages(i.id)
     })));
     return res.status(200).json({ success: true, data });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
+router.put('/incidents/:id/acknowledge', verifyToken, async (req, res) => {
+  try {
+    const incident = await Incident.acknowledge(req.params.id, req.user.id);
+    if (!incident) {
+      return res.status(404).json({ success: false, message: 'Incident not found or already handled' });
+    }
+
+    // 👇 NAYA ADDITION — acknowledge hote hi sound reminders band
+    cancelIncidentSoundReminders(req.params.id);
+    await Notification.markSoundPendingByReference('incident', req.params.id, false);
+
+    return res.status(200).json({ success: true, data: incident });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server error' });

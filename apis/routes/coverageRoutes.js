@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const CoverageRequest = require('../../data/models/CoverageRequest');
+const Incident = require('../../data/models/Incident');
 const Client = require('../../data/models/Client');
 const Agency = require('../../data/models/Agency');
 const verifyToken = require('../middleware/authMiddleware');
@@ -115,6 +116,21 @@ router.put('/coverage-request/:id/status', verifyToken, async (req, res) => {
     }
 
     return res.status(200).json({ success: true, data: updated });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+  
+});
+router.get('/incidents/escalated', verifyToken, async (req, res) => {
+  try {
+    const client = await Client.findByUserId(req.user.id);
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Client profile not found' });
+    }
+
+    const incidents = await Incident.findEscalatedByClientId(client.id);
+    return res.status(200).json({ success: true, data: incidents });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server error' });

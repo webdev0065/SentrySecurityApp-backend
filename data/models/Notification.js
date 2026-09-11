@@ -64,13 +64,27 @@ class Notification {
     );
     return result.rows[0];
   }
-
+  static async createForRecipient({ recipientId, recipientType, type, targetRole, title, message, referenceType, referenceId }) {
+    const result = await pool.query(
+      `INSERT INTO notifications 
+      (recipient_id, recipient_type, type, target_role, title, message, reference_type, reference_id, status)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'unread') RETURNING *`,
+      [recipientId, recipientType, type, targetRole, title, message, referenceType, referenceId]
+    );
+    return result.rows[0];
+  }
   static async deleteByReference(referenceType, referenceId) {
     await pool.query(
       `DELETE FROM notifications WHERE reference_type = $1 AND reference_id = $2`,
       [referenceType, referenceId]
     );
-  }
+  } 
 }
-
+async function markSoundPendingByReference(referenceType, referenceId, value) {
+  return db.query(
+    'UPDATE notifications SET sound_pending = $1 WHERE reference_type = $2 AND reference_id = $3 RETURNING *',
+    [value, referenceType, referenceId]
+  );
+}
+module.exports.markSoundPendingByReference = markSoundPendingByReference;
 module.exports = Notification;

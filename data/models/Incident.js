@@ -33,7 +33,7 @@ class Incident {
       `SELECT i.*, s.site_name
        FROM incidents i
        JOIN sites s ON s.id = i.site_id
-       WHERE i.agency_id = $1
+       WHERE i.agency_id = $1 AND i.status != 'escalated'
        ORDER BY i.created_at DESC`,
       [agencyId]
     );
@@ -57,6 +57,60 @@ class Incident {
       [status, id, agencyId]
     );
     return result.rows[0];
+  }
+
+
+  static async acknowledge(id, agencyId) {
+    const result = await pool.query(
+      `UPDATE incidents 
+       SET status = 'acknowledged', acknowledged_at = NOW() 
+       WHERE id = $1 AND agency_id = $2 AND status = 'open'
+       RETURNING *`,
+      [id, agencyId]
+    );
+    return result.rows[0];
+  }
+
+  static async findPendingForEscalation() {
+    const result = await pool.query(
+      `SELECT i.*, s.client_id, s.site_name
+       FROM incidents i
+       JOIN sites s ON s.id = i.site_id
+       WHERE i.status = 'open'`
+    );
+    return result.rows;
+  }
+
+  static async markReminderSent(id) {
+    const result = await pool.query(
+      `UPDATE incidents 
+       SET reminder_count = reminder_count + 1, last_reminder_at = NOW() 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  static async escalateToClient(id) {
+    const result = await pool.query(
+      `UPDATE incidents 
+       SET status = 'escalated', escalated_at = NOW() 
+       WHERE id = $1 RETURNING *`,
+      [id]
+    );
+    return result.rows[0];
+  }
+
+  static async findEscalatedByClientId(clientId) {
+    const result = await pool.query(
+      `SELECT i.*, s.site_name
+       FROM incidents i
+       JOIN sites s ON s.id = i.site_id
+       WHERE s.client_id = $1 AND i.status = 'escalated'
+       ORDER BY i.escalated_at DESC`,
+      [clientId]
+    );
+    return result.rows;
   }
 }
 

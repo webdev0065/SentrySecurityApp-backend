@@ -20,6 +20,7 @@
     "firebase-admin": "^14.3.0",
     "jsonwebtoken": "^9.0.3",
     "multer": "^2.3.0",
+    "node-cron": "^4.6.0",
     "node-pg-migrate": "^9.0.0",
     "pg": "^8.23.0",
     "twilio": "^6.1.0"

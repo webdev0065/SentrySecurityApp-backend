@@ -17,6 +17,7 @@ const superAdminRoutes = require('./apis/routes/superAdminRoutes');
 const agencyApprovalRoutes = require('./apis/routes/agencyApprovalRoutes');
 const notificationRoutes = require('./apis/routes/notificationRoutes');
 const profilePhotoRoutes = require('./apis/routes/profilePhoto');
+require('./jobs/incidentEscalationJob'); 
 
 const app = express();
 
@@ -47,5 +48,5 @@ app.use('/api', notificationRoutes);
 app.use('/api', profilePhotoRoutes);
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(` Server running on http://localhost:${PORT}`);
 });
