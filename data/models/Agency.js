@@ -69,6 +69,18 @@ class Agency {
     return result.rows;
   }
 
+  static async findApprovedByDistrict(district) {
+    const result = await pool.query(
+      `SELECT id, agency_name, business_type, city, state, district
+       FROM agencies
+       WHERE status = 'approved'
+         AND LOWER(TRIM(district)) = LOWER(TRIM($1))
+       ORDER BY agency_name ASC`,
+      [district]
+    );
+    return result.rows;
+  }
+
   static async updateStatus(id, status) {
     const result = await pool.query(
       `UPDATE agencies SET status = $1 WHERE id = $2 RETURNING *`,

@@ -2,9 +2,25 @@ const express = require('express');
 const router = express.Router();
 const CoverageRequest = require('../../data/models/CoverageRequest');
 const Client = require('../../data/models/Client');
+const Agency = require('../../data/models/Agency');
 const verifyToken = require('../middleware/authMiddleware');
 
 const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'assigned', 'completed', 'cancelled'];
+
+router.get('/available-agencies', verifyToken, async (req, res) => {
+  try {
+    const district = typeof req.query.district === 'string' ? req.query.district.trim() : '';
+    if (!district) {
+      return res.status(400).json({ success: false, message: 'District is required' });
+    }
+
+    const agencies = await Agency.findApprovedByDistrict(district);
+    return res.status(200).json({ success: true, data: agencies });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 
 router.post('/coverage-request', verifyToken, async (req, res) => {
   try {
