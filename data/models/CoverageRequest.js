@@ -1,12 +1,32 @@
 const pool = require('../../db');
 
 class CoverageRequest {
-  static async create({ clientId, eventName, state, district, city, siteLocation, guardsNeeded, notes, selectedAgencyId }) {
+  static async create({
+    clientId,
+    eventName,
+    state,
+    district,
+    city,
+    siteLocation,
+    guardsNeeded,
+    notes,
+    selectedAgencyId,
+  }) {
     const result = await pool.query(
       `INSERT INTO coverage_requests
         (client_id, event_name, state, district, city, site_location, guards_needed, notes, selected_agency_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [clientId, eventName, state, district, city, siteLocation, guardsNeeded, notes, selectedAgencyId || null]
+      [
+        clientId,
+        eventName,
+        state,
+        district,
+        city,
+        siteLocation,
+        guardsNeeded,
+        notes,
+        selectedAgencyId || null,
+      ],
     );
     return result.rows[0];
   }
@@ -22,7 +42,7 @@ class CoverageRequest {
        LEFT JOIN agencies assigned ON assigned.id = cr.assigned_agency_id
        WHERE cr.client_id = $1
        ORDER BY cr.created_at DESC`,
-      [clientId]
+      [clientId],
     );
     return result.rows;
   }
@@ -30,21 +50,52 @@ class CoverageRequest {
   static async findById(id, clientId) {
     const result = await pool.query(
       'SELECT * FROM coverage_requests WHERE id = $1 AND client_id = $2',
-      [id, clientId]
+      [id, clientId],
     );
     return result.rows[0];
   }
 
   static async findByAgencyId(agencyId) {
     const result = await pool.query(
-      `SELECT cr.*, c.company_name
+      `SELECT cr.*, c.company_name, c.site_name AS client_site_name,
+              c.site_address AS client_address
        FROM coverage_requests cr
        JOIN clients c ON c.id = cr.client_id
-       WHERE cr.assigned_agency_id = $1
+       WHERE cr.selected_agency_id = $1 OR cr.assigned_agency_id = $1
        ORDER BY cr.created_at DESC`,
-      [agencyId]
+      [agencyId],
     );
     return result.rows;
+  }
+
+  static async findForAgencyById(id, agencyId) {
+    const result = await pool.query(
+      `SELECT cr.*, c.company_name, c.site_name AS client_site_name,
+              c.site_address AS client_address
+       FROM coverage_requests cr
+       JOIN clients c ON c.id = cr.client_id
+       WHERE cr.id = $1
+         AND (cr.selected_agency_id = $2 OR cr.assigned_agency_id = $2)`,
+      [id, agencyId],
+    );
+    return result.rows[0];
+  }
+
+  static async updateForAgency(id, agencyId, status, assignedGuardIds = null) {
+    const result = await pool.query(
+      `UPDATE coverage_requests
+       SET status = $1::varchar,
+           assigned_agency_id = CASE
+             WHEN $1::varchar = 'rejected' THEN assigned_agency_id
+             ELSE $2::integer
+           END,
+           assigned_guard_ids = COALESCE($3::integer[], assigned_guard_ids)
+       WHERE id = $4
+         AND (selected_agency_id = $2::integer OR assigned_agency_id = $2::integer)
+       RETURNING *`,
+      [status, agencyId, assignedGuardIds, id],
+    );
+    return result.rows[0];
   }
 
   static async findPending() {
@@ -53,7 +104,7 @@ class CoverageRequest {
        FROM coverage_requests cr
        JOIN clients c ON c.id = cr.client_id
        WHERE cr.status = 'pending'
-       ORDER BY cr.created_at ASC`
+       ORDER BY cr.created_at ASC`,
     );
     return result.rows;
   }
@@ -63,7 +114,7 @@ class CoverageRequest {
       `UPDATE coverage_requests
        SET status = $1, assigned_agency_id = COALESCE($2, assigned_agency_id)
        WHERE id = $3 RETURNING *`,
-      [status, assignedAgencyId || null, id]
+      [status, assignedAgencyId || null, id],
     );
     return result.rows[0];
   }
