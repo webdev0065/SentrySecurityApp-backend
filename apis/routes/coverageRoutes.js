@@ -6,13 +6,23 @@ const Client = require('../../data/models/Client');
 const Agency = require('../../data/models/Agency');
 const verifyToken = require('../middleware/authMiddleware');
 
-const ALLOWED_STATUSES = ['pending', 'approved', 'rejected', 'assigned', 'completed', 'cancelled'];
+const ALLOWED_STATUSES = [
+  'pending',
+  'approved',
+  'rejected',
+  'assigned',
+  'completed',
+  'cancelled',
+];
 
 router.get('/available-agencies', verifyToken, async (req, res) => {
   try {
-    const district = typeof req.query.district === 'string' ? req.query.district.trim() : '';
+    const district =
+      typeof req.query.district === 'string' ? req.query.district.trim() : '';
     if (!district) {
-      return res.status(400).json({ success: false, message: 'District is required' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'District is required' });
     }
 
     const agencies = await Agency.findApprovedByDistrict(district);
@@ -23,31 +33,66 @@ router.get('/available-agencies', verifyToken, async (req, res) => {
   }
 });
 
+router.get('/available-agencies/:id', verifyToken, async (req, res) => {
+  try {
+    const agency = await Agency.findPublicApprovedById(req.params.id);
+    if (!agency) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Agency not found or unavailable' });
+    }
+    return res.status(200).json({ success: true, data: agency });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.post('/coverage-request', verifyToken, async (req, res) => {
   try {
-    const { eventName, state, district, city, siteLocation, guardsNeeded, notes, agencyId } = req.body;
+    const {
+      eventName,
+      state,
+      district,
+      city,
+      siteLocation,
+      guardsNeeded,
+      notes,
+      agencyId,
+    } = req.body;
 
     if (!state || !district || !city || !siteLocation) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Missing required fields' });
     }
 
     const guards = Number(guardsNeeded) || 1;
     if (guards < 1) {
-      return res.status(400).json({ success: false, message: 'guardsNeeded must be at least 1' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'guardsNeeded must be at least 1' });
     }
 
     let selectedAgencyId = null;
     if (agencyId) {
       const isValid = await Agency.isApprovedForDistrict(agencyId, district);
       if (!isValid) {
-        return res.status(400).json({ success: false, message: 'Selected agency is not available for this district' });
+        return res
+          .status(400)
+          .json({
+            success: false,
+            message: 'Selected agency is not available for this district',
+          });
       }
       selectedAgencyId = agencyId;
     }
 
     const client = await Client.findByUserId(req.user.id);
     if (!client) {
-      return res.status(404).json({ success: false, message: 'Client profile not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Client profile not found' });
     }
 
     const request = await CoverageRequest.create({
@@ -72,7 +117,9 @@ router.get('/coverage-request', verifyToken, async (req, res) => {
   try {
     const client = await Client.findByUserId(req.user.id);
     if (!client) {
-      return res.status(404).json({ success: false, message: 'Client profile not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Client profile not found' });
     }
 
     const requests = await CoverageRequest.findByClientId(client.id);
@@ -87,12 +134,16 @@ router.get('/coverage-request/:id', verifyToken, async (req, res) => {
   try {
     const client = await Client.findByUserId(req.user.id);
     if (!client) {
-      return res.status(404).json({ success: false, message: 'Client profile not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Client profile not found' });
     }
 
     const request = await CoverageRequest.findById(req.params.id, client.id);
     if (!request) {
-      return res.status(404).json({ success: false, message: 'Request not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Request not found' });
     }
 
     return res.status(200).json({ success: true, data: request });
@@ -107,12 +158,23 @@ router.put('/coverage-request/:id/status', verifyToken, async (req, res) => {
     const { status, assignedAgencyId } = req.body;
 
     if (!ALLOWED_STATUSES.includes(status)) {
-      return res.status(400).json({ success: false, message: `status must be one of: ${ALLOWED_STATUSES.join(', ')}` });
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: `status must be one of: ${ALLOWED_STATUSES.join(', ')}`,
+        });
     }
 
-    const updated = await CoverageRequest.updateStatus(req.params.id, status, assignedAgencyId);
+    const updated = await CoverageRequest.updateStatus(
+      req.params.id,
+      status,
+      assignedAgencyId,
+    );
     if (!updated) {
-      return res.status(404).json({ success: false, message: 'Request not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Request not found' });
     }
 
     return res.status(200).json({ success: true, data: updated });
@@ -120,13 +182,14 @@ router.put('/coverage-request/:id/status', verifyToken, async (req, res) => {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server error' });
   }
-  
 });
 router.get('/incidents/escalated', verifyToken, async (req, res) => {
   try {
     const client = await Client.findByUserId(req.user.id);
     if (!client) {
-      return res.status(404).json({ success: false, message: 'Client profile not found' });
+      return res
+        .status(404)
+        .json({ success: false, message: 'Client profile not found' });
     }
 
     const incidents = await Incident.findEscalatedByClientId(client.id);

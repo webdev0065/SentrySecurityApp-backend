@@ -6,17 +6,46 @@ const verifyToken = require('../middleware/authMiddleware');
 
 router.post('/agency/details', verifyToken, async (req, res) => {
   try {
-    const { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode } = req.body;
+    const {
+      agencyName,
+      businessType,
+      gstNumber,
+      officeAddress,
+      city,
+      state,
+      district,
+      pincode,
+    } = req.body;
 
-    if (!agencyName || !businessType || !officeAddress || !city || !state || !district || !pincode) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (
+      !agencyName ||
+      !businessType ||
+      !officeAddress ||
+      !city ||
+      !state ||
+      !district ||
+      !pincode
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Missing required fields' });
     }
     if (!/^\d{6}$/.test(pincode)) {
-      return res.status(400).json({ success: false, message: 'Pincode must be 6 digits' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Pincode must be 6 digits' });
     }
 
     const agency = await Agency.create({
-      userId: req.user.id, agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode
+      userId: req.user.id,
+      agencyName,
+      businessType,
+      gstNumber,
+      officeAddress,
+      city,
+      state,
+      district,
+      pincode,
     });
 
     await Notification.create({
@@ -38,7 +67,10 @@ router.post('/agency/details', verifyToken, async (req, res) => {
 router.get('/agency/details', verifyToken, async (req, res) => {
   try {
     const agency = await Agency.findByUserId(req.user.id);
-    if (!agency) return res.status(404).json({ success: false, message: 'Agency details not found' });
+    if (!agency)
+      return res
+        .status(404)
+        .json({ success: false, message: 'Agency details not found' });
     return res.status(200).json({ success: true, data: agency });
   } catch (err) {
     console.error(err);
@@ -48,25 +80,86 @@ router.get('/agency/details', verifyToken, async (req, res) => {
 
 router.put('/agency/details', verifyToken, async (req, res) => {
   try {
-    const { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode } = req.body;
+    const {
+      agencyName,
+      businessType,
+      gstNumber,
+      officeAddress,
+      city,
+      state,
+      district,
+      pincode,
+      fullName,
+      email,
+      mobileNumber,
+    } = req.body;
 
-    if (!agencyName || !businessType || !officeAddress || !city || !state || !district || !pincode) {
-      return res.status(400).json({ success: false, message: 'Missing required fields' });
+    if (
+      !agencyName ||
+      !businessType ||
+      !officeAddress ||
+      !city ||
+      !state ||
+      !district ||
+      !pincode ||
+      !fullName ||
+      !email ||
+      !mobileNumber
+    ) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Missing required fields' });
     }
     if (!/^\d{6}$/.test(pincode)) {
-      return res.status(400).json({ success: false, message: 'Pincode must be 6 digits' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Pincode must be 6 digits' });
+    }
+    if (
+      !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
+      !/^(?:\+91)?[6-9]\d{9}$/.test(mobileNumber)
+    ) {
+      return res
+        .status(400)
+        .json({
+          success: false,
+          message: 'Enter a valid email and Indian mobile number',
+        });
     }
 
-    const agency = await Agency.update(req.user.id, { agencyName, businessType, gstNumber, officeAddress, city, state, district, pincode });
+    const agency = await Agency.update(req.user.id, {
+      agencyName,
+      businessType,
+      gstNumber,
+      officeAddress,
+      city,
+      state,
+      district,
+      pincode,
+      fullName,
+      email,
+      mobileNumber,
+    });
 
     if (!agency) {
-      return res.status(404).json({ success: false, message: 'Agency details not found — create first' });
+      return res
+        .status(404)
+        .json({
+          success: false,
+          message: 'Agency details not found — create first',
+        });
     }
 
     return res.status(200).json({ success: true, data: agency });
   } catch (err) {
     console.error(err);
-    return res.status(500).json({ success: false, message: 'Server error' });
+    return res.status(err.code === '23505' ? 409 : 500).json({
+      success: false,
+      message:
+        err.code === '23505'
+          ? 'Email or mobile number is already registered'
+          : 'Server error',
+    });
   }
 });
 
