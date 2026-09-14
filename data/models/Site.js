@@ -67,7 +67,35 @@ class Site {
       `DELETE FROM sites
      WHERE id = $1 AND agency_id = $2
      RETURNING id`,
-      [id, agencyId]
+      [id, agencyId],
+    );
+    return result.rows[0];
+  }
+
+  static async update(id, agencyId, updates) {
+    const columns = {
+      siteName: 'site_name',
+      siteAddress: 'site_address',
+      city: 'city',
+      state: 'state',
+      latitude: 'latitude',
+      longitude: 'longitude',
+      coveragePlan: 'coverage_plan',
+      startTime: 'start_time',
+      endTime: 'end_time',
+    };
+    const entries = Object.entries(updates).filter(([key]) => columns[key]);
+    if (!entries.length) return this.findById(id, agencyId);
+    const values = entries.map(([, value]) => value);
+    const assignments = entries.map(
+      ([key], index) => `${columns[key]} = $${index + 1}`,
+    );
+    const result = await pool.query(
+      `UPDATE sites
+       SET ${assignments.join(', ')}
+       WHERE id = $${values.length + 1} AND agency_id = $${values.length + 2}
+       RETURNING *`,
+      [...values, id, agencyId],
     );
     return result.rows[0];
   }

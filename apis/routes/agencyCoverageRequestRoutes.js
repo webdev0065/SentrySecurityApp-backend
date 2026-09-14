@@ -117,6 +117,22 @@ router.put('/coverage-requests/:id', verifyToken, async (req, res) => {
             request,
           })
         : null;
+    if (status === 'assigned') {
+      const linkedSite = await pool.query(
+        'SELECT id FROM sites WHERE source_coverage_request_id = $1',
+        [request.id],
+      );
+      if (!linkedSite.rows[0]) {
+        return res.status(409).json({
+          success: false,
+          message: 'Approve this request before assigning guards',
+        });
+      }
+      await pool.query(
+        'UPDATE guards SET site_id = $1 WHERE agency_id = $2 AND id = ANY($3::int[])',
+        [linkedSite.rows[0].id, req.user.id, assignedGuardIds],
+      );
+    }
     return res.json({ success: true, data: updated, site });
   } catch (error) {
     console.error(error);
