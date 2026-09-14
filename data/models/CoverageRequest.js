@@ -13,7 +13,15 @@ class CoverageRequest {
 
   static async findByClientId(clientId) {
     const result = await pool.query(
-      'SELECT * FROM coverage_requests WHERE client_id = $1 ORDER BY created_at DESC',
+      `SELECT cr.*,
+              COALESCE(assigned.agency_name, selected.agency_name) AS agency_name,
+              COALESCE(assigned.city, selected.city) AS agency_city,
+              COALESCE(assigned.district, selected.district) AS agency_district
+       FROM coverage_requests cr
+       LEFT JOIN agencies selected ON selected.id = cr.selected_agency_id
+       LEFT JOIN agencies assigned ON assigned.id = cr.assigned_agency_id
+       WHERE cr.client_id = $1
+       ORDER BY cr.created_at DESC`,
       [clientId]
     );
     return result.rows;
