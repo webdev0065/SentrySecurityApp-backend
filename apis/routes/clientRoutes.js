@@ -32,8 +32,17 @@ const upload = multer({
 
 router.post('/client/details', verifyToken, async (req, res) => {
   try {
-    const { companyName, siteName, siteAddress, city, state, pincode } =
-      req.body;
+    const {
+      companyName,
+      siteName,
+      siteAddress,
+      city,
+      state,
+      pincode,
+      fullName,
+      email,
+      mobileNumber,
+    } = req.body;
 
     if (
       !companyName ||
@@ -146,8 +155,17 @@ router.get('/client/details', verifyToken, async (req, res) => {
 });
 router.patch('/client/details', verifyToken, async (req, res) => {
   try {
-    const { companyName, siteName, siteAddress, city, state, pincode } =
-      req.body;
+    const {
+      companyName,
+      siteName,
+      siteAddress,
+      city,
+      state,
+      pincode,
+      fullName,
+      email,
+      mobileNumber,
+    } = req.body;
 
     const updates = {};
     if (companyName !== undefined) updates.companyName = companyName;
@@ -156,6 +174,9 @@ router.patch('/client/details', verifyToken, async (req, res) => {
     if (city !== undefined) updates.city = city;
     if (state !== undefined) updates.state = state;
     if (pincode !== undefined) updates.pincode = pincode;
+    if (fullName !== undefined) updates.fullName = fullName;
+    if (email !== undefined) updates.email = email;
+    if (mobileNumber !== undefined) updates.mobileNumber = mobileNumber;
 
     if (Object.keys(updates).length === 0) {
       return res
@@ -308,12 +329,10 @@ router.put('/client/guards/:guardId/rating', verifyToken, async (req, res) => {
       [guardId, client.id],
     );
     if (!assigned.rows.length) {
-      return res
-        .status(403)
-        .json({
-          success: false,
-          message: 'Guard is not assigned to your site',
-        });
+      return res.status(403).json({
+        success: false,
+        message: 'Guard is not assigned to your site',
+      });
     }
     const rating = Number(req.body.rating);
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {

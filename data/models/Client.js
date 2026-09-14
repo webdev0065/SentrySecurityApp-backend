@@ -20,7 +20,10 @@ class Client {
 
   static async findByUserId(userId) {
     const result = await pool.query(
-      'SELECT * FROM clients WHERE user_id = $1',
+      `SELECT c.*, u.full_name, u.email, u.mobile_number
+       FROM clients c
+       JOIN users u ON u.id = c.user_id
+       WHERE c.user_id = $1`,
       [userId],
     );
     return result.rows[0];
@@ -46,23 +49,49 @@ class Client {
     const entries = Object.entries(updates).filter(
       ([key, value]) => columns[key] && value !== undefined,
     );
-
-    if (!entries.length) return null;
-
-    const values = entries.map(([, value]) => value);
-    const assignments = entries
-      .map(([key], index) => `${columns[key]} = $${index + 1}`)
-      .join(', ');
-    values.push(userId);
-
-    const result = await pool.query(
-      `UPDATE clients
-       SET ${assignments}
-       WHERE user_id = $${values.length}
-       RETURNING *`,
-      values,
+    const userColumns = {
+      fullName: 'full_name',
+      email: 'email',
+      mobileNumber: 'mobile_number',
+    };
+    const userEntries = Object.entries(updates).filter(
+      ([key, value]) => userColumns[key] && value !== undefined,
     );
-    return result.rows[0];
+    if (!entries.length && !userEntries.length) return null;
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      if (entries.length) {
+        const values = entries.map(([, value]) => value);
+        const assignments = entries
+          .map(([key], index) => `${columns[key]} = $${index + 1}`)
+          .join(', ');
+        await client.query(
+          `UPDATE clients SET ${assignments}
+           WHERE user_id = $${values.length + 1}`,
+          [...values, userId],
+        );
+      }
+      if (userEntries.length) {
+        const values = userEntries.map(([, value]) => value);
+        const assignments = userEntries
+          .map(([key], index) => `${userColumns[key]} = $${index + 1}`)
+          .join(', ');
+        await client.query(
+          `UPDATE users SET ${assignments}
+           WHERE id = $${values.length + 1}`,
+          [...values, userId],
+        );
+      }
+      await client.query('COMMIT');
+      return this.findByUserId(userId);
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
   }
 }
 module.exports = Client;
