@@ -62,7 +62,15 @@ class Site {
     );
     return result.rows;
   }
-
+  static async deleteById(id, agencyId) {
+    const result = await pool.query(
+      `DELETE FROM sites
+     WHERE id = $1 AND agency_id = $2
+     RETURNING id`,
+      [id, agencyId]
+    );
+    return result.rows[0];
+  }
   static async findById(id, agencyId) {
     const result = await pool.query(
       'SELECT * FROM sites WHERE id = $1 AND agency_id = $2',

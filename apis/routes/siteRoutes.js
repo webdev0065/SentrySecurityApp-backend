@@ -59,7 +59,21 @@ router.get('/sites', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+router.delete('/sites/:id', verifyToken, async (req, res) => {
+  try {
+    const existing = await Site.findById(req.params.id, req.user.id);
+    if (!existing) {
+      return res.status(404).json({ success: false, message: 'Site not found' });
+    }
 
+    await Site.deleteById(req.params.id, req.user.id);
+
+    return res.status(200).json({ success: true, message: 'Site deleted successfully' });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 router.get('/sites/:id', verifyToken, async (req, res) => {
   try {
     const site = await Site.findById(req.params.id, req.user.id);
