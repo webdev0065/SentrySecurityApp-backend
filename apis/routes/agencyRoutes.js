@@ -119,12 +119,10 @@ router.put('/agency/details', verifyToken, async (req, res) => {
       !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) ||
       !/^(?:\+91)?[6-9]\d{9}$/.test(mobileNumber)
     ) {
-      return res
-        .status(400)
-        .json({
-          success: false,
-          message: 'Enter a valid email and Indian mobile number',
-        });
+      return res.status(400).json({
+        success: false,
+        message: 'Enter a valid email and Indian mobile number',
+      });
     }
 
     const agency = await Agency.update(req.user.id, {
@@ -142,12 +140,10 @@ router.put('/agency/details', verifyToken, async (req, res) => {
     });
 
     if (!agency) {
-      return res
-        .status(404)
-        .json({
-          success: false,
-          message: 'Agency details not found — create first',
-        });
+      return res.status(404).json({
+        success: false,
+        message: 'Agency details not found — create first',
+      });
     }
 
     return res.status(200).json({ success: true, data: agency });
