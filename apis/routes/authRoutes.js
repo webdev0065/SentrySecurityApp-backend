@@ -16,7 +16,6 @@ router.post('/login', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Email and password are required' });
     }
 
-    // 1. Pehle SuperAdmin table mein check karo
     const admin = await SuperAdmin.findByEmail(email);
     if (admin) {
       const isMatch = await bcrypt.compare(password, admin.password);
@@ -34,7 +33,6 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    // 2. Agar Admin nahi hai, toh Users table mein check karo
     const userResult = await pool.query(`SELECT * FROM users WHERE email = $1`, [email]);
     if (userResult.rows.length > 0) {
       const user = userResult.rows[0];
@@ -65,7 +63,6 @@ router.post('/login', async (req, res) => {
       }
     }
 
-    // Agar kahin match nahi hua
     return res.status(401).json({ success: false, error: 'Invalid email or password' });
 
   } catch (err) {

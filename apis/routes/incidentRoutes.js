@@ -46,8 +46,6 @@ router.post('/incidents', verifyToken, (req, res, next) => {
       images = await Incident.addImages(incident.id, imageUrls);
     }
 
-    // 👇 NAYA ADDITION — guard ke incident report karte hi agency ko notify + sound reminders start
-    // ⚠️ site.agencyId — Site.js me actual field name confirm karke yahan match karo
     await notifyAgency(site.agencyId, incident, `New ${severity} severity incident reported at ${site.site_name}`);
     scheduleIncidentSoundReminders(incident.id);
 
@@ -83,7 +81,6 @@ router.put('/incidents/:id/acknowledge', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Incident not found or already handled' });
     }
 
-    // 👇 NAYA ADDITION — acknowledge hote hi sound reminders band
     cancelIncidentSoundReminders(req.params.id);
     await Notification.markSoundPendingByReference('incident', req.params.id, false);
 

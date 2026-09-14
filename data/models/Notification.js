@@ -10,20 +10,28 @@ class Notification {
     return result.rows[0];
   }
 
-  static async findForRole(targetRole, status) {
-    if (status) {
-      const result = await pool.query(
-        `SELECT * FROM notifications WHERE target_role = $1 AND status = $2 ORDER BY created_at DESC`,
-        [targetRole, status]
-      );
-      return result.rows;
-    }
-    const result = await pool.query(
-      `SELECT * FROM notifications WHERE target_role = $1 ORDER BY created_at DESC`,
-      [targetRole]
-    );
-    return result.rows;
+  static async findForRole(targetRole, status, recipientId = null) {
+  const conditions = ['target_role = $1'];
+  const params = [targetRole];
+
+  if (recipientId) {
+    conditions.push(`recipient_id = $${params.length + 1}`);
+    params.push(recipientId);
   }
+  if (status) {
+    conditions.push(`status = $${params.length + 1}`);
+    params.push(status);
+  }
+
+  console.log('QUERY:', conditions.join(' AND '));  
+  console.log('PARAMS:', params);                     
+
+  const result = await pool.query(
+    `SELECT * FROM notifications WHERE ${conditions.join(' AND ')} ORDER BY created_at DESC`,
+    params
+  );
+  return result.rows;
+}
 
   static async countUnreadForRole(targetRole) {
     const result = await pool.query(
@@ -78,7 +86,7 @@ class Notification {
       `DELETE FROM notifications WHERE reference_type = $1 AND reference_id = $2`,
       [referenceType, referenceId]
     );
-  } 
+  }
 }
 async function markSoundPendingByReference(referenceType, referenceId, value) {
   return db.query(

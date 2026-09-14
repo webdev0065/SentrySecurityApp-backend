@@ -3,15 +3,23 @@ const router = express.Router();
 const Notification = require('../../data/models/Notification');
 const authMiddleware = require('../middleware/authMiddleware');
 
+// router.get('/notifications', authMiddleware, async (req, res) => {
+//   try {
+//     const notifications = await Notification.findForRole(req.user.account_type, req.query.status);
+//     res.json(notifications);
+//   } catch (err) {
+//     res.status(500).json({ error: err.message });
+//   }
+// });
 router.get('/notifications', authMiddleware, async (req, res) => {
   try {
-    const notifications = await Notification.findForRole(req.user.account_type, req.query.status);
+    const recipientId = req.user.account_type === 'agency' ? req.user.agency_id : null;
+    const notifications = await Notification.findForRole(req.user.account_type, req.query.status, recipientId);
     res.json(notifications);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
-
 router.get('/notifications/unread-count', authMiddleware, async (req, res) => {
   try {
     const count = await Notification.countUnreadForRole(req.user.account_type);

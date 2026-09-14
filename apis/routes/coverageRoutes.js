@@ -3,6 +3,7 @@ const router = express.Router();
 const CoverageRequest = require('../../data/models/CoverageRequest');
 const Incident = require('../../data/models/Incident');
 const Client = require('../../data/models/Client');
+const Notification = require('../../data/models/Notification');
 const Agency = require('../../data/models/Agency');
 const verifyToken = require('../middleware/authMiddleware');
 
@@ -106,7 +107,18 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
       notes: notes || null,
       selectedAgencyId,
     });
-
+    if (selectedAgencyId) {
+      await Notification.createForRecipient({
+        recipientId: selectedAgencyId,
+        recipientType: 'agency',
+        targetRole: 'agency',
+        type: 'coverage_request',
+        title: 'New Coverage Request',
+        message: `${client.company_name || 'A client'} requested ${guards} guard(s) for ${siteLocation}`,
+        referenceType: 'coverage_request',
+        referenceId: request.id,
+      });
+    }
     return res.status(201).json({ success: true, data: request });
   } catch (err) {
     console.error(err);
