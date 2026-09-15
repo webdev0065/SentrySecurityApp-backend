@@ -96,6 +96,17 @@ class Guard {
     );
     return result.rows[0];
   }
+  static async findByUserId(userId) {
+  const result = await pool.query(
+    `SELECT g.*, u.full_name, u.mobile_number, u.email, s.site_name
+     FROM guards g
+     JOIN users u ON u.id = g.user_id
+     LEFT JOIN sites s ON s.id = g.site_id
+     WHERE g.user_id = $1`,
+    [userId],
+  );
+  return result.rows[0];
+}
 
   static async updateStatus(id, agencyId, status) {
     const result = await pool.query(

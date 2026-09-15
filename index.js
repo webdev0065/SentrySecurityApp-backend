@@ -18,6 +18,7 @@ const agencyApprovalRoutes = require('./apis/routes/agencyApprovalRoutes');
 const notificationRoutes = require('./apis/routes/notificationRoutes');
 const agencyCoverageRequestRoutes = require('./apis/routes/agencyCoverageRequestRoutes');
 const profilePhotoRoutes = require('./apis/routes/profilePhoto');
+const reportGuardRoutes = require('./apis/routes/reportGuardRute');
 require('./jobs/incidentEscalationJob');
 
 const app = express();
@@ -48,6 +49,7 @@ app.use('/api/superadmin', superAdminRoutes);
 app.use('/api/superadmin', agencyApprovalRoutes);
 app.use('/api', notificationRoutes);
 app.use('/api', profilePhotoRoutes);
+app.use('/api', reportGuardRoutes);
 
 app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);

@@ -1,14 +1,15 @@
 const pool = require('../../db');
 
 class Incident {
-  static async create({ agencyId, siteId, severity, notes }) {
+  static async create({ agencyId, siteId, severity, notes,guardId= null }) {
     const result = await pool.query(
-      `INSERT INTO incidents (agency_id, site_id, severity, notes)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [agencyId, siteId, severity, notes]
+      `INSERT INTO incidents (agency_id, site_id, severity, notes,guard_id)
+       VALUES ($1, $2, $3, $4,$5) RETURNING *`,
+      [agencyId, siteId, severity, notes, guardId]
     );
     return result.rows[0];
   }
+  
 
   static async addImages(incidentId, imageUrls) {
     if (!imageUrls || imageUrls.length === 0) return [];
