@@ -73,7 +73,60 @@ router.get('/incidents', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+const updateIncidentStatus = async (req, res) => {
+  try {
+    const { status } = req.body;
+    const validStatuses = ['pending', 'in_progress', 'resolved'];
 
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'status must be pending, in_progress or resolved',
+      });
+    }
+
+    const incident = await Incident.updateStatus(
+      req.params.id,
+      req.user.id,
+      status,
+    );
+    if (!incident) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Incident not found' });
+    }
+
+    const clientResult = await require('../../db').query(
+      `SELECT cr.client_id
+       FROM sites s
+       JOIN coverage_requests cr ON cr.id = s.source_coverage_request_id
+       WHERE s.id = $1`,
+      [incident.site_id],
+    );
+    const clientId = clientResult.rows[0]?.client_id;
+    if (clientId) {
+      await Notification.createForRecipient({
+        recipientId: clientId,
+        recipientType: 'client',
+        type: 'INCIDENT_STATUS_UPDATED',
+        targetRole: 'client',
+        title: 'Incident status updated',
+        message: `Incident INC-${incident.id} is now ${status.replace('_', ' ')}.`,
+        referenceType: 'incident',
+        referenceId: incident.id,
+      });
+    }
+
+    return res.status(200).json({ success: true, data: incident });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+};
+
+// Canonical Agency endpoint. Keep the older endpoint below for clients already using it.
+router.patch('/incidents/:id/status', verifyToken, updateIncidentStatus);
+router.patch('/guard/reports/:id/status', verifyToken, updateIncidentStatus);
 router.put('/incidents/:id/acknowledge', verifyToken, async (req, res) => {
   try {
     const incident = await Incident.acknowledge(req.params.id, req.user.id);

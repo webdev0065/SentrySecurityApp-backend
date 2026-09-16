@@ -4,6 +4,7 @@ const Guard = require('../../data/models/Guard');
 const Incident = require('../../data/models/Incident');
 const Notification = require('../../data/models/Notification');
 const Agency = require('../../data/models/Agency');
+const pool = require('../../db');
 const verifyToken = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 
@@ -64,6 +65,27 @@ router.post('/guard/reports', verifyToken, upload.array('photos', 5), async (req
       referenceId: incident.id,
       targetRole: 'agency',
     });
+
+    const clientResult = await pool.query(
+      `SELECT cr.client_id
+       FROM sites s
+       JOIN coverage_requests cr ON cr.id = s.source_coverage_request_id
+       WHERE s.id = $1`,
+      [guard.site_id],
+    );
+    const clientId = clientResult.rows[0]?.client_id;
+    if (clientId) {
+      await Notification.createForRecipient({
+        recipientId: clientId,
+        recipientType: 'client',
+        type: 'INCIDENT_REPORTED',
+        targetRole: 'client',
+        title: 'New incident alert',
+        message: `${guard.full_name} reported a ${severity} severity incident at ${guard.site_name}.`,
+        referenceType: 'incident',
+        referenceId: incident.id,
+      });
+    }
 
     return res.status(201).json({ success: true, data: incident });
   } catch (err) {

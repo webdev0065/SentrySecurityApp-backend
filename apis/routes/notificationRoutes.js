@@ -2,12 +2,19 @@ const express = require('express');
 const router = express.Router();
 const Notification = require('../../data/models/Notification');
 const Agency = require('../../data/models/Agency');
+const Client = require('../../data/models/Client');
 const authMiddleware = require('../middleware/authMiddleware');
 
 const getRecipientId = async user => {
-  if (user.account_type !== 'agency') return null;
-  const agency = await Agency.findByUserId(user.id);
-  return agency?.id ?? null;
+  if (user.account_type === 'agency') {
+    const agency = await Agency.findByUserId(user.id);
+    return agency?.id ?? null;
+  }
+  if (user.account_type === 'client') {
+    const client = await Client.findByUserId(user.id);
+    return client?.id ?? null;
+  }
+  return null;
 };
 
 // router.get('/notifications', authMiddleware, async (req, res) => {

@@ -153,6 +153,35 @@ router.get('/client/details', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+router.get('/client/alerts', verifyToken, async (req, res) => {
+  try {
+    const client = await Client.findByUserId(req.user.id);
+    if (!client) {
+      return res.status(404).json({ success: false, message: 'Client not found' });
+    }
+    const alerts = await pool.query(
+      `SELECT DISTINCT i.*, s.site_name, a.agency_name
+       FROM incidents i
+       JOIN sites s ON s.id = i.site_id
+       JOIN agencies a ON a.user_id = i.agency_id
+       LEFT JOIN coverage_requests cr ON cr.id = s.source_coverage_request_id
+       WHERE cr.client_id = $1
+       ORDER BY i.created_at DESC`,
+      [client.id],
+    );
+    return res.json({
+      success: true,
+      data: alerts.rows.map(alert => ({
+        ...alert,
+        incident_code: `INC-${alert.id}`,
+      })),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
 router.patch('/client/details', verifyToken, async (req, res) => {
   try {
     const {
