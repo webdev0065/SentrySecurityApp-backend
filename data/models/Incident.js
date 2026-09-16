@@ -41,6 +41,19 @@ class Incident {
     return result.rows;
   }
 
+  static async findByGuardUserId(userId) {
+    const result = await pool.query(
+      `SELECT i.*, s.site_name
+       FROM incidents i
+       JOIN guards g ON g.id = i.guard_id
+       JOIN sites s ON s.id = i.site_id
+       WHERE g.user_id = $1
+       ORDER BY i.created_at DESC`,
+      [userId],
+    );
+    return result.rows;
+  }
+
   static async findById(id, agencyId) {
     const result = await pool.query(
       `SELECT i.*, s.site_name

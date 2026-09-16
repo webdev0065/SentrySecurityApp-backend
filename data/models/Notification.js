@@ -128,7 +128,7 @@ class Notification {
   }
 }
 async function markSoundPendingByReference(referenceType, referenceId, value) {
-  return db.query(
+  return pool.query(
     'UPDATE notifications SET sound_pending = $1 WHERE reference_type = $2 AND reference_id = $3 RETURNING *',
     [value, referenceType, referenceId],
   );
