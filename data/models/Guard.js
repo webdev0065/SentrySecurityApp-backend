@@ -209,6 +209,40 @@ class Guard {
     }
   }
 
+  /** Self-service profile update performed by the signed-in guard. */
+  static async updateProfileByUserId(
+    userId,
+    { fullName, mobileNumber, email, address, age, gender },
+  ) {
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      await client.query(
+        'UPDATE users SET full_name = $1, mobile_number = $2, email = $3 WHERE id = $4',
+        [fullName, mobileNumber, email, userId],
+      );
+      await client.query(
+        'UPDATE guards SET address = $1, age = $2, gender = $3 WHERE user_id = $4',
+        [address || null, age || null, gender || null, userId],
+      );
+      const result = await client.query(
+        `SELECT g.*, u.full_name, u.mobile_number, u.email, s.site_name, s.site_address
+         FROM guards g
+         JOIN users u ON u.id = g.user_id
+         LEFT JOIN sites s ON s.id = g.site_id
+         WHERE g.user_id = $1`,
+        [userId],
+      );
+      await client.query('COMMIT');
+      return result.rows[0];
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+  }
+
   static async delete(id, agencyId) {
     const result = await pool.query(
       `DELETE FROM users WHERE id = (
