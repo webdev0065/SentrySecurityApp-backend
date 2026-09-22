@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Guard = require('../../data/models/Guard');
 const Site = require('../../data/models/Site');
+const Subscription = require('../../data/models/Subscription'); // NAYA
 const verifyToken = require('../middleware/authMiddleware');
 
 const VALID_COVERAGE_PLANS = ['day_shift', 'night_watch', '24x7'];
@@ -162,6 +163,21 @@ router.post('/guards', verifyToken, async (req, res) => {
         return res
           .status(404)
           .json({ success: false, message: 'Site not found' });
+      }
+    }
+    const subscription = await Subscription.findActiveByAgencyId(req.user.id);
+    if (!subscription) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'No active subscription plan found' });
+    }
+    if (subscription.max_guards !== null) {
+      const currentGuardCount = await Subscription.countGuards(req.user.id);
+      if (currentGuardCount >= subscription.max_guards) {
+        return res.status(403).json({
+          success: false,
+          message: `Guard limit reached for your ${subscription.plan_name} plan (${subscription.max_guards} guards). Upgrade your plan to add more.`,
+        });
       }
     }
 

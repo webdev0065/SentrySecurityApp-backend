@@ -22,6 +22,7 @@ const profilePhotoRoutes = require('./apis/routes/profilePhoto');
 const reportGuardRoutes = require('./apis/routes/reportGuardRute');
 const patrolGuardRoutes = require('./apis/routes/patrolGuardRoute');
 const patrolAgencyRoutes = require('./apis/routes/patrolAgencyRoute');
+const planRoutes = require('./apis/routes/planRoutes');
 require('./jobs/incidentEscalationJob');
 
 const app = express();
@@ -56,7 +57,7 @@ app.use('/api', profilePhotoRoutes);
 app.use('/api', reportGuardRoutes);
 app.use('/api/guard', patrolGuardRoutes);
 app.use('/api/agency', patrolAgencyRoutes);
-
+app.use('/api', planRoutes);
 app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);
 });
