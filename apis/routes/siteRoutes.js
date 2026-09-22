@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const Site = require('../../data/models/Site');
-const Subscription = require('../../data/models/Subscription');   // ← YEH NAYI LINE ADD KARO
+const Subscription = require('../../data/models/Subscription');   
 const verifyToken = require('../middleware/authMiddleware');
 const VALID_COVERAGE_PLANS = ['day_shift', 'night_watch', '24x7'];
 
@@ -173,7 +173,6 @@ const subscription = await Subscription.findActiveByAgencyId(req.user.id);
         .status(403)
         .json({ success: false, message: 'No active subscription plan found' });
     }
-    // Agar plan me site limit set hai (null matlab unlimited), toh check karo limit cross toh nahi ho rahi
     if (subscription.max_sites !== null) {
       const currentSiteCount = await Subscription.countSites(req.user.id);
       if (currentSiteCount >= subscription.max_sites) {

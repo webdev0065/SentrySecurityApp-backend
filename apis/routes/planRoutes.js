@@ -4,7 +4,6 @@ const Plan = require('../../data/models/Plan');
 const Subscription = require('../../data/models/Subscription');
 const verifyToken = require('../middleware/authMiddleware');
 
-// GET /api/plans - sabhi available plans (public, login zaroori nahi)
 router.get('/plans', async (req, res) => {
   try {
     const plans = await Plan.findAll();
@@ -15,7 +14,6 @@ router.get('/plans', async (req, res) => {
   }
 });
 
-// GET /api/agency/subscription - agency ka current plan
 router.get('/agency/subscription', verifyToken, async (req, res) => {
   try {
     if (req.user.account_type !== 'agency') {
@@ -46,7 +44,6 @@ router.get('/agency/subscription', verifyToken, async (req, res) => {
   }
 });
 
-// POST /api/agency/subscription/switch - plan change karo
 router.post('/agency/subscription/switch', verifyToken, async (req, res) => {
   try {
     if (req.user.account_type !== 'agency') {
@@ -63,7 +60,6 @@ router.post('/agency/subscription/switch', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Plan not found' });
     }
 
-    // Agar downgrade kar rahe hain, check karo existing guards/sites naye plan ki limit se zyada toh nahi
     if (plan.max_guards !== null) {
       const guardCount = await Subscription.countGuards(req.user.id);
       if (guardCount > plan.max_guards) {

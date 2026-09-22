@@ -18,13 +18,11 @@ class Subscription {
     try {
       await client.query('BEGIN');
 
-      // Purani active subscription ko expired mark karo
       await client.query(
         `UPDATE agency_subscriptions SET status = 'expired' WHERE agency_id = $1 AND status = 'active'`,
         [agencyId]
       );
 
-      // Nayi subscription banao
       const result = await client.query(
         `INSERT INTO agency_subscriptions (agency_id, plan_id, status, started_at, renews_at)
          VALUES ($1, $2, 'active', NOW(), NOW() + INTERVAL '1 month')

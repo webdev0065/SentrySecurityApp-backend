@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Guard = require('../../data/models/Guard');
 const Site = require('../../data/models/Site');
-const Subscription = require('../../data/models/Subscription'); // NAYA
+const Subscription = require('../../data/models/Subscription'); 
 const verifyToken = require('../middleware/authMiddleware');
 
 const VALID_COVERAGE_PLANS = ['day_shift', 'night_watch', '24x7'];

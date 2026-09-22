@@ -124,7 +124,6 @@ const updateIncidentStatus = async (req, res) => {
   }
 };
 
-// Canonical Agency endpoint. Keep the older endpoint below for clients already using it.
 router.patch('/incidents/:id/status', verifyToken, updateIncidentStatus);
 router.patch('/guard/reports/:id/status', verifyToken, updateIncidentStatus);
 router.put('/incidents/:id/acknowledge', verifyToken, async (req, res) => {
