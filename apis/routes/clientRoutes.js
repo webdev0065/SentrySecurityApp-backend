@@ -160,6 +160,8 @@ router.get('/client/alerts', verifyToken, async (req, res) => {
     if (!client) {
       return res.status(404).json({ success: false, message: 'Client not found' });
     }
+    // Only incidents older than 15 minutes appear here — the agency gets a
+    // 15-minute buzzer window first. NEVER filter these out afterwards.
     const alerts = await pool.query(
       `SELECT DISTINCT i.*, s.site_name, a.agency_name
        FROM incidents i
@@ -167,6 +169,7 @@ router.get('/client/alerts', verifyToken, async (req, res) => {
        JOIN agencies a ON a.user_id = i.agency_id
        LEFT JOIN coverage_requests cr ON cr.id = s.source_coverage_request_id
        WHERE cr.client_id = $1
+         AND i.created_at <= NOW() - INTERVAL '15 minutes'
        ORDER BY i.created_at DESC`,
       [client.id],
     );

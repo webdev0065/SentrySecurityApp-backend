@@ -24,6 +24,10 @@ const patrolGuardRoutes = require('./apis/routes/patrolGuardRoute');
 const patrolAgencyRoutes = require('./apis/routes/patrolAgencyRoute');
 const planRoutes = require('./apis/routes/planRoutes');
 require('./jobs/incidentEscalationJob');
+// Registering the scheduler at boot keeps the 5-minute buzzer sweep alive even
+// before any incident exists, so a backend restart mid-window still delivers the
+// remaining bursts instead of dropping them.
+require('./jobs/notificationSoundScheduler');
 
 const app = express();
 

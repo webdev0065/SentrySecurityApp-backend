@@ -96,6 +96,17 @@ const updateIncidentStatus = async (req, res) => {
         .json({ success: false, message: 'Incident not found' });
     }
 
+    // The agency just acted on the incident, so it counts as "seen": stop the
+    // 15-minute buzzer loop and drop any queued burst so the app cannot play a
+    // stale alert after this point. The incident row itself stays untouched.
+    cancelIncidentSoundReminders(req.params.id);
+    await Notification.markSoundPendingByReference(
+      'incident',
+      req.params.id,
+      false,
+      'agency',
+    );
+
     const clientResult = await require('../../db').query(
       `SELECT cr.client_id
        FROM sites s

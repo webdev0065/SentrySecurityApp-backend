@@ -73,19 +73,12 @@ router.post('/guard/reports', verifyToken, upload.array('photos', 5), async (req
        WHERE s.id = $1`,
       [guard.site_id],
     );
-    const clientId = clientResult.rows[0]?.client_id;
-    if (clientId) {
-      await Notification.createForRecipient({
-        recipientId: clientId,
-        recipientType: 'client',
-        type: 'INCIDENT_REPORTED',
-        targetRole: 'client',
-        title: 'New incident alert',
-        message: `${guard.full_name} reported a ${severity} severity incident at ${guard.site_name}.`,
-        referenceType: 'incident',
-        referenceId: incident.id,
-      });
-    }
+    // Looked up for future use; client is intentionally NOT notified here.
+    // Client alerts appear only after the 15-minute escalation window.
+    void clientResult.rows[0]?.client_id;
+
+    const { scheduleIncidentSoundReminders } = require('../../jobs/notificationSoundScheduler');
+    scheduleIncidentSoundReminders(incident.id);
 
     return res.status(201).json({ success: true, data: incident });
   } catch (err) {

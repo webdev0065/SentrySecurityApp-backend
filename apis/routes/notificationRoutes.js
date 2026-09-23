@@ -51,6 +51,21 @@ router.get('/notifications/unread-count', authMiddleware, async (req, res) => {
   }
 });
 
+router.get('/notifications/sound-pending', authMiddleware, async (req, res) => {
+  try {
+    // Agency polls this; backend atomically consumes the flag so each
+    // 5-minute buzzer tick plays exactly once per device poll cycle.
+    const recipientId = await getRecipientId(req.user);
+    const pending = await Notification.consumeSoundPending(
+      req.user.account_type,
+      recipientId,
+    );
+    res.json({ playSound: pending.length > 0, count: pending.length });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.put('/notifications/:id/read', authMiddleware, async (req, res) => {
   try {
     const recipientId = await getRecipientId(req.user);
