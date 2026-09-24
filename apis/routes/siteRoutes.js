@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const axios = require('axios');
 const Site = require('../../data/models/Site');
-const Subscription = require('../../data/models/Subscription');   
+const Subscription = require('../../data/models/Subscription');
 const verifyToken = require('../middleware/authMiddleware');
 const VALID_COVERAGE_PLANS = ['day_shift', 'night_watch', '24x7'];
 
@@ -55,6 +55,24 @@ router.post('/sites', verifyToken, async (req, res) => {
           message: 'coveragePlan must be day_shift, night_watch or 24x7',
         });
     }
+
+    // ---- SUBSCRIPTION LIMIT CHECK (create ke waqt) ----
+    const subscription = await Subscription.findActiveByAgencyId(req.user.id);
+    if (!subscription) {
+      return res
+        .status(403)
+        .json({ success: false, message: 'No active subscription plan found' });
+    }
+    if (subscription.max_sites !== null) {
+      const currentSiteCount = await Subscription.countSites(req.user.id);
+      if (currentSiteCount >= subscription.max_sites) {
+        return res.status(403).json({
+          success: false,
+          message: `Site limit reached for your ${subscription.plan_name} plan (${subscription.max_sites} sites). Upgrade your plan to add more.`,
+        });
+      }
+    }
+    // ---- END LIMIT CHECK ----
 
     if ((!latitude || !longitude) && siteAddress) {
       const geo = await geocodeAddress(
@@ -167,21 +185,7 @@ router.put('/sites/:id', verifyToken, async (req, res) => {
       latitude = geo.latitude;
       longitude = geo.longitude;
     }
-const subscription = await Subscription.findActiveByAgencyId(req.user.id);
-    if (!subscription) {
-      return res
-        .status(403)
-        .json({ success: false, message: 'No active subscription plan found' });
-    }
-    if (subscription.max_sites !== null) {
-      const currentSiteCount = await Subscription.countSites(req.user.id);
-      if (currentSiteCount >= subscription.max_sites) {
-        return res.status(403).json({
-          success: false,
-          message: `Site limit reached for your ${subscription.plan_name} plan (${subscription.max_sites} sites). Upgrade your plan to add more.`,
-        });
-      }
-    }
+
     const updates = {};
     if (siteName !== undefined) updates.siteName = siteName;
     if (siteAddress !== undefined) updates.siteAddress = siteAddress;

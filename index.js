@@ -23,6 +23,7 @@ const reportGuardRoutes = require('./apis/routes/reportGuardRute');
 const patrolGuardRoutes = require('./apis/routes/patrolGuardRoute');
 const patrolAgencyRoutes = require('./apis/routes/patrolAgencyRoute');
 const planRoutes = require('./apis/routes/planRoutes');
+const dutyRoutes = require('./apis/routes/dutyRoutes');
 require('./jobs/incidentEscalationJob');
 // Registering the scheduler at boot keeps the 5-minute buzzer sweep alive even
 // before any incident exists, so a backend restart mid-window still delivers the
@@ -62,6 +63,7 @@ app.use('/api', reportGuardRoutes);
 app.use('/api/guard', patrolGuardRoutes);
 app.use('/api/agency', patrolAgencyRoutes);
 app.use('/api', planRoutes);
+app.use('/api/guard', dutyRoutes);
 app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);
 });
