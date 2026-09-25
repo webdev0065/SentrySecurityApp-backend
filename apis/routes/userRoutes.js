@@ -57,6 +57,15 @@ router.post('/complete-registration', async (req, res) => {
          VALUES ('AGENCY_APPROVAL_REQUEST', 'New agency awaiting approval', $1, 'agency', $2, 'superAdmin', 'unread')`,
         [`${agencyName} has submitted details and needs review.`, agencyResult.rows[0].id]
       );
+      // New agencies start on the free Basic plan (2 sites / 5 guards) and can
+      // upgrade to Pro or Pro Max from the Plan / Billing screen.
+      await client.query(
+        `INSERT INTO agency_subscriptions (agency_id, plan_id, status, started_at, renews_at)
+         SELECT $1, p.id, 'active', NOW(), NULL
+         FROM plans p
+         WHERE p.name = 'Basic'`,
+        [user.id]
+      );
     } else {
       const { companyName, siteName, siteAddress, city, state, pincode } = profile;
       if (!companyName || !siteName || !siteAddress || !city || !state || !/^\d{6}$/.test(pincode || '')) {

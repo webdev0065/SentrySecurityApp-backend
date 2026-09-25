@@ -48,5 +48,22 @@ const uploadProfilePhoto = multer({
   limits: { fileSize: 5 * 1024 * 1024, files: 1 }
 });
 
+const dutyPhotoStorage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, path.join(__dirname, '../../uploads/duty'));
+  },
+  filename: (req, file, cb) => {
+    const uniqueName = `duty_${req.user?.id || 'guard'}_${Date.now()}${path.extname(file.originalname)}`;
+    cb(null, uniqueName);
+  }
+});
+
+const uploadDutyPhoto = multer({
+  storage: dutyPhotoStorage,
+  fileFilter,
+  limits: { fileSize: 8 * 1024 * 1024, files: 1 }
+});
+
 module.exports = upload;
 module.exports.uploadProfilePhoto = uploadProfilePhoto;
+module.exports.uploadDutyPhoto = uploadDutyPhoto;

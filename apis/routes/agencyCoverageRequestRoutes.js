@@ -4,6 +4,7 @@ const pool = require('../../db');
 const Agency = require('../../data/models/Agency');
 const CoverageRequest = require('../../data/models/CoverageRequest');
 const Site = require('../../data/models/Site');
+const Subscription = require('../../data/models/Subscription');
 const verifyToken = require('../middleware/authMiddleware');
 
 const ALLOWED_STATUSES = ['approved', 'rejected', 'assigned', 'completed'];
@@ -102,6 +103,36 @@ router.put('/coverage-requests/:id', verifyToken, async (req, res) => {
         });
       }
       assignedGuardIds = uniqueGuardIds;
+    }
+
+    if (status === 'approved') {
+      // Approving a coverage request provisions a site for this agency, so the
+      // plan's site allowance applies here too. Re-approving a request only
+      // updates the site it already created and must not be blocked.
+      const existingSite = await pool.query(
+        'SELECT id FROM sites WHERE source_coverage_request_id = $1',
+        [request.id],
+      );
+      if (!existingSite.rows.length) {
+        const subscription = await Subscription.findActiveByAgencyId(
+          req.user.id,
+        );
+        if (!subscription) {
+          return res
+            .status(403)
+            .json({ success: false, message: 'No active subscription plan found' });
+        }
+        if (subscription.max_sites !== null) {
+          const currentSiteCount = await Subscription.countSites(req.user.id);
+          if (currentSiteCount >= subscription.max_sites) {
+            return res.status(403).json({
+              success: false,
+              code: 'PLAN_LIMIT_REACHED',
+              message: `Your ${subscription.plan_name} plan includes up to ${subscription.max_sites} sites, and you have reached this limit. Upgrade your plan to approve this request.`,
+            });
+          }
+        }
+      }
     }
 
     const updated = await CoverageRequest.updateForAgency(

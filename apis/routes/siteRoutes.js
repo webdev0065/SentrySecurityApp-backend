@@ -68,7 +68,8 @@ router.post('/sites', verifyToken, async (req, res) => {
       if (currentSiteCount >= subscription.max_sites) {
         return res.status(403).json({
           success: false,
-          message: `Site limit reached for your ${subscription.plan_name} plan (${subscription.max_sites} sites). Upgrade your plan to add more.`,
+          code: 'PLAN_LIMIT_REACHED',
+          message: `Your ${subscription.plan_name} plan includes up to ${subscription.max_sites} sites, and you have reached this limit. Upgrade your plan to add more sites.`,
         });
       }
     }

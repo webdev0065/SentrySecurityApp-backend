@@ -5,6 +5,19 @@ const Guard = require('../../data/models/Guard');
 const verifyToken = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 
+// Guard photos are required evidence for a duty log, so surface multer
+// validation problems as client errors instead of generic 500s.
+const uploadDutyPhoto = (req, res, next) => {
+  upload.uploadDutyPhoto.single('photo')(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    return next();
+  });
+};
+
+const dutyPhotoUrl = (file) => (file ? `/uploads/duty/${file.filename}` : null);
+
 router.get('/duty/status', verifyToken, async (req, res) => {
   try {
     const guard = await Guard.findByUserId(req.user.id);
@@ -30,7 +43,7 @@ router.get('/duty/status', verifyToken, async (req, res) => {
   }
 });
 
-router.post('/duty/clock-in', verifyToken, upload.single('photo'), async (req, res) => {
+router.post('/duty/clock-in', verifyToken, uploadDutyPhoto, async (req, res) => {
   try {
     const guard = await Guard.findByUserId(req.user.id);
     if (!guard) {
@@ -38,6 +51,12 @@ router.post('/duty/clock-in', verifyToken, upload.single('photo'), async (req, r
     }
     if (!guard.site_id) {
       return res.status(400).json({ success: false, message: 'No active site assignment' });
+    }
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: 'A guard photo is required to start duty'
+      });
     }
 
     const existing = await Duty.findActiveLog(guard.id);
@@ -49,14 +68,15 @@ router.post('/duty/clock-in', verifyToken, upload.single('photo'), async (req, r
       });
     }
 
-    const photoUrl = req.file ? req.file.path : null;
-
     const log = await Duty.clockIn({
       guardId: guard.id,
       siteId: guard.site_id,
       agencyId: guard.agency_id,
-      photoUrl
+      photoUrl: dutyPhotoUrl(req.file)
     });
+
+    // Keep the guard record in sync so agency dashboards show live duty status.
+    await Guard.updateDutyStatusByUserId(guard.user_id, 'on_duty');
 
     return res.status(201).json({ success: true, data: log });
   } catch (err) {
@@ -65,7 +85,7 @@ router.post('/duty/clock-in', verifyToken, upload.single('photo'), async (req, r
   }
 });
 
-router.post('/duty/clock-out', verifyToken, upload.single('photo'), async (req, res) => {
+router.post('/duty/clock-out', verifyToken, uploadDutyPhoto, async (req, res) => {
   try {
     const guard = await Guard.findByUserId(req.user.id);
     if (!guard) {
@@ -77,9 +97,9 @@ router.post('/duty/clock-out', verifyToken, upload.single('photo'), async (req, 
       return res.status(400).json({ success: false, message: 'Not currently clocked in' });
     }
 
-    const photoUrl = req.file ? req.file.path : null;
+    const log = await Duty.clockOut(existing.id, guard.id, dutyPhotoUrl(req.file));
 
-    const log = await Duty.clockOut(existing.id, guard.id, photoUrl);
+    await Guard.updateDutyStatusByUserId(guard.user_id, 'off_duty');
 
     return res.status(200).json({ success: true, data: log });
   } catch (err) {

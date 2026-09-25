@@ -65,7 +65,7 @@ router.post('/agency/subscription/switch', verifyToken, async (req, res) => {
       if (guardCount > plan.max_guards) {
         return res.status(400).json({
           success: false,
-          message: `Cannot switch to ${planName}. You currently have ${guardCount} guards, but this plan allows only ${plan.max_guards}.`,
+          message: `Your agency has ${guardCount} guards, which is more than the ${plan.name} plan allows (${plan.max_guards} guards). Remove the extra guards or choose a higher plan.`,
         });
       }
     }
@@ -74,7 +74,7 @@ router.post('/agency/subscription/switch', verifyToken, async (req, res) => {
       if (siteCount > plan.max_sites) {
         return res.status(400).json({
           success: false,
-          message: `Cannot switch to ${planName}. You currently have ${siteCount} sites, but this plan allows only ${plan.max_sites}.`,
+          message: `Your agency has ${siteCount} sites, which is more than the ${plan.name} plan allows (${plan.max_sites} sites). Remove the extra sites or choose a higher plan.`,
         });
       }
     }
