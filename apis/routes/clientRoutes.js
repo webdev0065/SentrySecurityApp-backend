@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Client = require('../../data/models/Client');
 const ClientRating = require('../../data/models/ClientRating');
+const Invoice = require('../../data/models/Invoice');
 const pool = require('../../db');
 const verifyToken = require('../middleware/authMiddleware');
 const multer = require('multer');
@@ -29,6 +30,8 @@ const upload = multer({
     cb(ok ? null : new Error('Only image files allowed'), ok);
   },
 });
+
+const INVOICE_STATUSES = ['pending', 'paid', 'overdue'];
 
 router.post('/client/details', verifyToken, async (req, res) => {
   try {
@@ -185,6 +188,37 @@ router.get('/client/alerts', verifyToken, async (req, res) => {
     return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
+// Invoices issued to the signed-in client (read-only — agencies own the
+// invoice lifecycle, clients only view what was billed to them).
+router.get('/client/invoices', verifyToken, async (req, res) => {
+  try {
+    const { status } = req.query;
+    if (status && !INVOICE_STATUSES.includes(status)) {
+      return res
+        .status(400)
+        .json({ success: false, message: 'Invalid invoice status' });
+    }
+    const client = await Client.findByUserId(req.user.id);
+    if (!client) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Client not found' });
+    }
+    const invoices = await Invoice.findByClientId(client.id, status || null);
+    return res.json({
+      success: true,
+      data: invoices.map(invoice => ({
+        ...invoice,
+        invoice_code: `INV-${invoice.id}`,
+      })),
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ success: false, message: 'Server error' });
+  }
+});
+
 router.patch('/client/details', verifyToken, async (req, res) => {
   try {
     const {
