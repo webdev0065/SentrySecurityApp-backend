@@ -1,6 +1,31 @@
 const pool = require('../../db');
 
+function normalizeCheckpointInput(value, index) {
+  const name = String(value?.name ?? '').trim();
+  if (!name) return { error: 'Checkpoint name is required' };
+  if (name.length > 255) return { error: 'Checkpoint name is too long' };
+  return { name, sequence_order: index + 1 };
+}
+
 class CoverageRequest {
+  static validateCheckpointList(checkpoints) {
+    if (checkpoints === undefined) return { checkpoints: [] };
+    if (!Array.isArray(checkpoints)) return { error: 'checkpoints must be an array' };
+    if (checkpoints.length > 20) return { error: 'A maximum of 20 checkpoints is allowed' };
+    const normalized = [];
+    const seen = new Set();
+    for (let index = 0; index < checkpoints.length; index += 1) {
+      const parsed = normalizeCheckpointInput(checkpoints[index], index);
+      if (parsed.error) return { error: `Checkpoint ${index + 1}: ${parsed.error}` };
+      if (seen.has(parsed.name.toLowerCase())) {
+        return { error: `Checkpoint ${index + 1}: duplicate checkpoint name` };
+      }
+      seen.add(parsed.name.toLowerCase());
+      normalized.push(parsed);
+    }
+    return { checkpoints: normalized };
+  }
+
   static async create({
     clientId,
     eventName,
@@ -11,24 +36,49 @@ class CoverageRequest {
     guardsNeeded,
     notes,
     selectedAgencyId,
+    checkpoints = [],
   }) {
-    const result = await pool.query(
-      `INSERT INTO coverage_requests
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `INSERT INTO coverage_requests
         (client_id, event_name, state, district, city, site_location, guards_needed, notes, selected_agency_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) RETURNING *`,
-      [
-        clientId,
-        eventName,
-        state,
-        district,
-        city,
-        siteLocation,
-        guardsNeeded,
-        notes,
-        selectedAgencyId || null,
-      ],
-    );
-    return result.rows[0];
+        [
+          clientId,
+          eventName,
+          state,
+          district,
+          city,
+          siteLocation,
+          guardsNeeded,
+          notes,
+          selectedAgencyId || null,
+        ],
+      );
+      const request = result.rows[0];
+      for (const point of checkpoints) {
+        await client.query(
+          `INSERT INTO coverage_request_checkpoints
+            (coverage_request_id, name, sequence_order)
+           VALUES ($1, $2, $3)`,
+          [request.id, point.name, point.sequence_order],
+        );
+      }
+      await client.query('COMMIT');
+      if (checkpoints.length) {
+        request.checkpoints = await this.findCheckpointsByRequestId(request.id);
+      } else {
+        request.checkpoints = [];
+      }
+      return request;
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   static async findByClientId(clientId) {
@@ -44,7 +94,33 @@ class CoverageRequest {
        ORDER BY cr.created_at DESC`,
       [clientId],
     );
-    return result.rows;
+    return this.attachCheckpoints(result.rows);
+  }
+
+  // Attaches checkpoint lists to a batch of coverage requests with a single
+  // query so list screens stay free of N+1 lookups.
+  static async attachCheckpoints(requests) {
+    if (!requests.length) return requests;
+    const result = await pool.query(
+      `SELECT id, coverage_request_id, name, sequence_order, created_at
+       FROM coverage_request_checkpoints
+       WHERE coverage_request_id = ANY($1::int[]) AND is_active = true
+       ORDER BY sequence_order ASC, id ASC`,
+      [requests.map(request => request.id)],
+    );
+    const grouped = new Map();
+    for (const row of result.rows) {
+      const list = grouped.get(row.coverage_request_id);
+      if (list) {
+        list.push(row);
+      } else {
+        grouped.set(row.coverage_request_id, [row]);
+      }
+    }
+    for (const request of requests) {
+      request.checkpoints = grouped.get(request.id) || [];
+    }
+    return requests;
   }
 
   static async findById(id, clientId) {
@@ -52,7 +128,22 @@ class CoverageRequest {
       'SELECT * FROM coverage_requests WHERE id = $1 AND client_id = $2',
       [id, clientId],
     );
-    return result.rows[0];
+    const request = result.rows[0];
+    if (request) {
+      request.checkpoints = await this.findCheckpointsByRequestId(request.id);
+    }
+    return request;
+  }
+
+  static async findCheckpointsByRequestId(coverageRequestId) {
+    const result = await pool.query(
+      `SELECT id, coverage_request_id, name, sequence_order, created_at
+       FROM coverage_request_checkpoints
+       WHERE coverage_request_id = $1 AND is_active = true
+       ORDER BY sequence_order ASC, id ASC`,
+      [coverageRequestId],
+    );
+    return result.rows;
   }
 
   static async findByAgencyId(agencyId) {
@@ -65,7 +156,7 @@ class CoverageRequest {
        ORDER BY cr.created_at DESC`,
       [agencyId],
     );
-    return result.rows;
+    return this.attachCheckpoints(result.rows);
   }
 
   static async findForAgencyById(id, agencyId) {
@@ -78,7 +169,11 @@ class CoverageRequest {
          AND (cr.selected_agency_id = $2 OR cr.assigned_agency_id = $2)`,
       [id, agencyId],
     );
-    return result.rows[0];
+    const request = result.rows[0];
+    if (request) {
+      request.checkpoints = await this.findCheckpointsByRequestId(request.id);
+    }
+    return request;
   }
 
   static async updateForAgency(id, agencyId, status, assignedGuardIds = null) {

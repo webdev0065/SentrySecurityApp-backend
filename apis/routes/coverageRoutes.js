@@ -60,6 +60,7 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
       guardsNeeded,
       notes,
       agencyId,
+      checkpoints,
     } = req.body;
 
     if (!state || !district || !city || !siteLocation) {
@@ -96,6 +97,11 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
         .json({ success: false, message: 'Client profile not found' });
     }
 
+    const parsed = CoverageRequest.validateCheckpointList(checkpoints);
+    if (parsed.error) {
+      return res.status(400).json({ success: false, message: parsed.error });
+    }
+
     const request = await CoverageRequest.create({
       clientId: client.id,
       eventName: eventName || siteLocation,
@@ -106,6 +112,7 @@ router.post('/coverage-request', verifyToken, async (req, res) => {
       guardsNeeded: guards,
       notes: notes || null,
       selectedAgencyId,
+      checkpoints: parsed.checkpoints,
     });
     if (selectedAgencyId) {
       await Notification.createForRecipient({

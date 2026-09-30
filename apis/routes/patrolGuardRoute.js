@@ -14,10 +14,21 @@ router.get('/patrol/checkpoints', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'No active site assignment' });
     }
 
-    const checkpoints = await Patrol.findCheckpointsBySiteId(guard.site_id);
+    // Visit state comes from the patrol_scans ledger (not from the active
+    // round) so the screen can always rebuild the persisted state.
+    const [checkpoints, recentScans] = await Promise.all([
+      Patrol.findCheckpointsWithVisitsBySiteId(guard.site_id, guard.id),
+      Patrol.findRecentScansBySiteIdForGuard(guard.id, guard.site_id)
+    ]);
+
     return res.status(200).json({
       success: true,
-      data: { site_id: guard.site_id, site_name: guard.site_name, checkpoints }
+      data: {
+        site_id: guard.site_id,
+        site_name: guard.site_name,
+        checkpoints,
+        recent_scans: recentScans
+      }
     });
   } catch (err) {
     console.error(err);
@@ -112,18 +123,38 @@ router.post('/patrol/checkpoints/:id/scan', verifyToken, async (req, res) => {
     if (!guard) {
       return res.status(404).json({ success: false, message: 'Guard not found' });
     }
-
-    const round = await Patrol.findActiveRound(guard.id);
-    if (!round) {
-      return res.status(400).json({ success: false, message: 'No active patrol round. Start a round first.' });
+    if (!guard.site_id) {
+      return res.status(400).json({ success: false, message: 'No active site assignment' });
     }
 
     const checkpoint = await Patrol.findCheckpointById(req.params.id);
     if (!checkpoint) {
       return res.status(404).json({ success: false, message: 'Checkpoint not found' });
     }
-    if (checkpoint.site_id !== round.site_id) {
+    if (checkpoint.site_id !== guard.site_id) {
       return res.status(400).json({ success: false, message: 'Checkpoint does not belong to your assigned site' });
+    }
+
+    // Guards mark checkpoints visited directly; the round that stores the scan
+    // history is opened on demand here and stays available for agency reports.
+    let round = await Patrol.findActiveRound(guard.id);
+    if (round && round.site_id !== guard.site_id) {
+      // Reassigned mid-round: the stale round can no longer accept scans.
+      await Patrol.completeRound(round.id);
+      round = null;
+    }
+    if (!round) {
+      const siteCheckpoints = await Patrol.findCheckpointsBySiteId(guard.site_id);
+      if (siteCheckpoints.length === 0) {
+        return res.status(400).json({ success: false, message: 'No checkpoints configured for this site' });
+      }
+
+      round = await Patrol.startRound({
+        guardId: guard.id,
+        siteId: guard.site_id,
+        agencyId: guard.agency_id,
+        totalCheckpoints: siteCheckpoints.length
+      });
     }
 
     const result = await Patrol.scanCheckpoint({

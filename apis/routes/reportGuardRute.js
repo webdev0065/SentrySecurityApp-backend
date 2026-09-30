@@ -8,7 +8,22 @@ const pool = require('../../db');
 const verifyToken = require('../middleware/authMiddleware');
 const upload = require('../middleware/upload');
 
-router.post('/guard/reports', verifyToken, upload.array('photos', 5), async (req, res) => {
+// Report photos are guard evidence, so surface multer validation problems as
+// client errors instead of generic 500s (same contract as dutyRoutes).
+const uploadReportPhotos = (req, res, next) => {
+  upload.array('photos', 5)(req, res, (err) => {
+    if (err) {
+      return res.status(400).json({ success: false, message: err.message });
+    }
+    return next();
+  });
+};
+
+// Stored as a public `/uploads/incidents/...` URL so agency screens can render
+// the evidence, matching how the other incident upload routes store photos.
+const incidentPhotoUrl = (file) => `/uploads/incidents/${file.filename}`;
+
+router.post('/guard/reports', verifyToken, uploadReportPhotos, async (req, res) => {
   try {
     if (req.user.account_type !== 'guard') {
       return res.status(403).json({ success: false, message: 'Guard access is required' });
@@ -45,9 +60,10 @@ router.post('/guard/reports', verifyToken, upload.array('photos', 5), async (req
       guardId: guard.id,
     });
 
+    let images = [];
     if (req.files && req.files.length > 0) {
-      const imageUrls = req.files.map(f => f.path);
-      await Incident.addImages(incident.id, imageUrls);
+      const imageUrls = req.files.map(incidentPhotoUrl);
+      images = await Incident.addImages(incident.id, imageUrls);
     }
 
     const agency = await Agency.findByUserId(guard.agency_id);
@@ -80,7 +96,10 @@ router.post('/guard/reports', verifyToken, upload.array('photos', 5), async (req
     const { scheduleIncidentSoundReminders } = require('../../jobs/notificationSoundScheduler');
     scheduleIncidentSoundReminders(incident.id);
 
-    return res.status(201).json({ success: true, data: incident });
+    return res.status(201).json({
+      success: true,
+      data: { ...incident, images },
+    });
   } catch (err) {
     console.error(err);
     return res.status(500).json({ success: false, message: 'Server error' });

@@ -4,6 +4,7 @@ const pool = require('../../db');
 const Agency = require('../../data/models/Agency');
 const CoverageRequest = require('../../data/models/CoverageRequest');
 const Site = require('../../data/models/Site');
+const Patrol = require('../../data/models/Patrol');
 const Subscription = require('../../data/models/Subscription');
 const verifyToken = require('../middleware/authMiddleware');
 
@@ -141,13 +142,32 @@ router.put('/coverage-requests/:id', verifyToken, async (req, res) => {
       status,
       assignedGuardIds,
     );
-    const site =
+    // Keep the response shape aligned with the list/detail endpoints so the
+    // client can render the requested checkpoints without an extra fetch.
+    if (updated) {
+      updated.checkpoints = await CoverageRequest.findCheckpointsByRequestId(
+        request.id,
+      );
+    }
+    let site =
       status === 'approved'
         ? await Site.createFromCoverageRequest({
             agencyId: req.user.id,
             request,
           })
         : null;
+    if (site && request.checkpoints?.length) {
+      const existing = await Patrol.findCheckpointsBySiteId(site.id);
+      if (!existing.length) {
+        for (const point of request.checkpoints) {
+          await Patrol.createCheckpoint({
+            siteId: site.id,
+            name: point.name,
+            sequenceOrder: point.sequence_order,
+          });
+        }
+      }
+    }
     if (status === 'assigned') {
       const linkedSite = await pool.query(
         'SELECT id FROM sites WHERE source_coverage_request_id = $1',

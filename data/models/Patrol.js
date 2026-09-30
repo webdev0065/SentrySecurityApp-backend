@@ -21,6 +21,45 @@ class Patrol {
     return result.rows;
   }
 
+  /**
+   * Site checkpoints together with the visit state of a single guard.
+   *
+   * Visit state is read from the patrol_scans ledger instead of the active
+   * patrol round, so a marked checkpoint stays visited after a refresh, a
+   * screen re-entry, an app restart and after its round has been completed.
+   */
+  static async findCheckpointsWithVisitsBySiteId(siteId, guardId) {
+    const result = await pool.query(
+      `SELECT c.*,
+              v.last_visited_at AS visited_at,
+              (v.last_visited_at IS NOT NULL) AS visited
+       FROM checkpoints c
+       LEFT JOIN LATERAL (
+         SELECT MAX(ps.scanned_at) AS last_visited_at
+         FROM patrol_scans ps
+         WHERE ps.checkpoint_id = c.id AND ps.guard_id = $2
+       ) v ON TRUE
+       WHERE c.site_id = $1 AND c.is_active = true
+       ORDER BY c.sequence_order ASC, c.id ASC`,
+      [siteId, guardId]
+    );
+    return result.rows;
+  }
+
+  /** Latest visits logged by one guard at a site, newest first. */
+  static async findRecentScansBySiteIdForGuard(guardId, siteId, limit = 5) {
+    const result = await pool.query(
+      `SELECT ps.id, ps.checkpoint_id, ps.scanned_at, c.name AS checkpoint_name
+       FROM patrol_scans ps
+       JOIN checkpoints c ON c.id = ps.checkpoint_id
+       WHERE ps.guard_id = $1 AND c.site_id = $2 AND c.is_active = true
+       ORDER BY ps.scanned_at DESC, ps.id DESC
+       LIMIT $3`,
+      [guardId, siteId, limit]
+    );
+    return result.rows;
+  }
+
   static async findCheckpointById(id) {
     const result = await pool.query(
       `SELECT c.*, s.agency_id
