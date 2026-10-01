@@ -176,8 +176,8 @@ class CoverageRequest {
     return request;
   }
 
-  static async updateForAgency(id, agencyId, status, assignedGuardIds = null) {
-    const result = await pool.query(
+  static async updateForAgency(id, agencyId, status, assignedGuardIds = null, db = pool) {
+    const result = await db.query(
       `UPDATE coverage_requests
        SET status = $1::varchar,
            assigned_agency_id = CASE

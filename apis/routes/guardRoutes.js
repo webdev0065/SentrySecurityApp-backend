@@ -2,7 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Guard = require('../../data/models/Guard');
 const Site = require('../../data/models/Site');
-const Subscription = require('../../data/models/Subscription'); 
+const Subscription = require('../../data/models/Subscription');
+const GuardAssignmentService = require('../../data/services/GuardAssignmentService');
 const verifyToken = require('../middleware/authMiddleware');
 
 const VALID_COVERAGE_PLANS = ['day_shift', 'night_watch', '24x7'];
@@ -27,6 +28,21 @@ function isValidDate(value) {
   return (
     !Number.isNaN(date.getTime()) && date.toISOString().slice(0, 10) === value
   );
+}
+
+/**
+ * Maps guard assignment business rules (duplicate, already assigned,
+ * capacity, site not found) onto the shared `{ success, message, code }`
+ * error contract. Returns true when the response has been sent.
+ */
+function sendAssignmentError(res, error) {
+  if (error && error.name === 'AssignmentError') {
+    res
+      .status(error.status)
+      .json({ success: false, message: error.message, code: error.code });
+    return true;
+  }
+  return false;
 }
 
 router.post('/guards', verifyToken, async (req, res) => {
@@ -208,6 +224,8 @@ router.post('/guards', verifyToken, async (req, res) => {
         data: { ...guard, guard_code: `SG-${guard.id}` },
       });
   } catch (err) {
+    if (sendAssignmentError(res, GuardAssignmentService.normalizeError(err)))
+      return;
     if (err.code === '23505') {
       return res
         .status(409)
@@ -277,7 +295,7 @@ router.put('/guards/:id', verifyToken, async (req, res) => {
       !mobileNumber ||
       !email ||
       !joiningDate ||
-      !siteId ||
+      siteId === undefined ||
       !coveragePlan ||
       !basicSalary ||
       !String(address || '').trim() ||
@@ -288,7 +306,7 @@ router.put('/guards/:id', verifyToken, async (req, res) => {
         .json({
           success: false,
           message:
-            'All fields except password, age and allowances are required',
+            'All fields except password, age and allowances are required (siteId may be null to unassign)',
         });
     }
     if (!isValidEmail(email) || !isValidDate(joiningDate)) {
@@ -374,11 +392,13 @@ router.put('/guards/:id', verifyToken, async (req, res) => {
           message: 'A valid 10-digit mobile number is required',
         });
     }
-    const site = await Site.findById(siteId, req.user.id);
-    if (!site) {
-      return res
-        .status(404)
-        .json({ success: false, message: 'Site not found' });
+    if (siteId !== null && siteId !== undefined) {
+      const site = await Site.findById(siteId, req.user.id);
+      if (!site) {
+        return res
+          .status(404)
+          .json({ success: false, message: 'Site not found' });
+      }
     }
 
     const guard = await Guard.update(req.params.id, req.user.id, {
@@ -412,6 +432,8 @@ router.put('/guards/:id', verifyToken, async (req, res) => {
         data: { ...guard, guard_code: `SG-${guard.id}` },
       });
   } catch (err) {
+    if (sendAssignmentError(res, GuardAssignmentService.normalizeError(err)))
+      return;
     if (err.code === '23505') {
       return res
         .status(409)

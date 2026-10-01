@@ -1,5 +1,6 @@
 const pool = require('../../db');
 const bcrypt = require('bcrypt');
+const GuardAssignmentService = require('../services/GuardAssignmentService');
 
 class Guard {
   static async create({
@@ -23,6 +24,16 @@ class Guard {
     const client = await pool.connect();
     try {
       await client.query('BEGIN');
+
+      // Assignment rule check (site ownership + capacity) runs under the site
+      // row lock before the guard row is created, so concurrent creates for
+      // the same site serialize and cannot exceed capacity.
+      if (siteId) {
+        await GuardAssignmentService.prepareCreate(client, {
+          agencyId,
+          siteId,
+        });
+      }
 
       const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -157,7 +168,7 @@ class Guard {
     try {
       await client.query('BEGIN');
       const existing = await client.query(
-        'SELECT user_id FROM guards WHERE id = $1 AND agency_id = $2 FOR UPDATE',
+        'SELECT user_id, site_id FROM guards WHERE id = $1 AND agency_id = $2 FOR UPDATE',
         [id, agencyId],
       );
       if (!existing.rows[0]) {
@@ -165,6 +176,19 @@ class Guard {
         return undefined;
       }
       const userId = existing.rows[0].user_id;
+      // Assignment rule check under the already-held guard lock (then the
+      // site lock, the project-wide lock order): the same site stays put,
+      // null explicitly unassigns, a different site is rejected while the
+      // current assignment is active, and fresh assignments re-check capacity.
+      const targetSiteId = await GuardAssignmentService.prepareSiteChange(
+        client,
+        {
+          agencyId,
+          currentSiteId: existing.rows[0].site_id,
+          targetSiteId:
+            siteId === undefined ? existing.rows[0].site_id : siteId,
+        },
+      );
       await client.query(
         'UPDATE users SET full_name = $1, mobile_number = $2, email = $3 WHERE id = $4',
         [fullName, mobileNumber, email, userId],
@@ -179,7 +203,7 @@ class Guard {
          start_time=$5, end_time=$6, basic_salary=$7, allowances=$8, address=$9, age=$10, gender=$11
          WHERE id=$12 AND agency_id=$13 RETURNING *`,
         [
-          siteId,
+          targetSiteId,
           coveragePlan,
           shiftHours,
           joiningDate,

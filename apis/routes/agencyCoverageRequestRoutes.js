@@ -6,6 +6,7 @@ const CoverageRequest = require('../../data/models/CoverageRequest');
 const Site = require('../../data/models/Site');
 const Patrol = require('../../data/models/Patrol');
 const Subscription = require('../../data/models/Subscription');
+const GuardAssignmentService = require('../../data/services/GuardAssignmentService');
 const verifyToken = require('../middleware/authMiddleware');
 
 const ALLOWED_STATUSES = ['approved', 'rejected', 'assigned', 'completed'];
@@ -23,6 +24,20 @@ async function getAgency(req, res) {
     return null;
   }
   return agency;
+}
+
+/**
+ * Maps assignment business rules onto the shared `{ success, message, code }`
+ * error contract. Returns true when the response has been sent.
+ */
+function sendAssignmentError(res, error) {
+  if (error && error.name === 'AssignmentError') {
+    res
+      .status(error.status)
+      .json({ success: false, message: error.message, code: error.code });
+    return true;
+  }
+  return false;
 }
 
 router.get('/coverage-requests', verifyToken, async (req, res) => {
@@ -81,9 +96,7 @@ router.put('/coverage-requests/:id', verifyToken, async (req, res) => {
 
     let assignedGuardIds = null;
     if (status === 'assigned') {
-      const uniqueGuardIds = [...new Set(guardIds.map(Number))].filter(
-        Number.isInteger,
-      );
+      const uniqueGuardIds = GuardAssignmentService.normalizeGuardIds(guardIds);
       if (
         !uniqueGuardIds.length ||
         uniqueGuardIds.length > request.guards_needed
@@ -136,6 +149,70 @@ router.put('/coverage-requests/:id', verifyToken, async (req, res) => {
       }
     }
 
+    if (status === 'assigned') {
+      // Single transaction: lock the request row (serializes concurrent
+      // submissions of the same request), resolve the linked site, then run
+      // the central assignment service which locks the guards and the site,
+      // re-checks duplicate / already-assigned / capacity rules against the
+      // locked rows, writes assignments, and only then persists the request
+      // update. Nothing is mutated unless every rule passes.
+      const client = await pool.connect();
+      try {
+        await client.query('BEGIN');
+        const locked = await client.query(
+          `SELECT id FROM coverage_requests
+           WHERE id = $1 AND (selected_agency_id = $2 OR assigned_agency_id = $2)
+           FOR UPDATE`,
+          [request.id, agency.id],
+        );
+        if (!locked.rows[0]) {
+          await client.query('ROLLBACK');
+          return res
+            .status(404)
+            .json({ success: false, message: 'Request not found' });
+        }
+        const linkedSite = await client.query(
+          'SELECT id FROM sites WHERE source_coverage_request_id = $1',
+          [request.id],
+        );
+        if (!linkedSite.rows[0]) {
+          await client.query('ROLLBACK');
+          return res.status(409).json({
+            success: false,
+            message: 'Approve this request before assigning guards',
+            code: 'APPROVAL_REQUIRED',
+          });
+        }
+        await GuardAssignmentService.assign(client, {
+          agencyId: req.user.id,
+          siteId: linkedSite.rows[0].id,
+          guardIds: assignedGuardIds,
+        });
+        const updated = await CoverageRequest.updateForAgency(
+          request.id,
+          agency.id,
+          status,
+          assignedGuardIds,
+          client,
+        );
+        await client.query('COMMIT');
+        if (updated) {
+          updated.checkpoints =
+            await CoverageRequest.findCheckpointsByRequestId(request.id);
+        }
+        return res.json({ success: true, data: updated, site: null });
+      } catch (assignmentError) {
+        try {
+          await client.query('ROLLBACK');
+        } catch (rollbackError) {
+          // connection already unusable - surfaced by normalizeError below
+        }
+        throw GuardAssignmentService.normalizeError(assignmentError);
+      } finally {
+        client.release();
+      }
+    }
+
     const updated = await CoverageRequest.updateForAgency(
       request.id,
       agency.id,
@@ -168,24 +245,9 @@ router.put('/coverage-requests/:id', verifyToken, async (req, res) => {
         }
       }
     }
-    if (status === 'assigned') {
-      const linkedSite = await pool.query(
-        'SELECT id FROM sites WHERE source_coverage_request_id = $1',
-        [request.id],
-      );
-      if (!linkedSite.rows[0]) {
-        return res.status(409).json({
-          success: false,
-          message: 'Approve this request before assigning guards',
-        });
-      }
-      await pool.query(
-        'UPDATE guards SET site_id = $1 WHERE agency_id = $2 AND id = ANY($3::int[])',
-        [linkedSite.rows[0].id, req.user.id, assignedGuardIds],
-      );
-    }
     return res.json({ success: true, data: updated, site });
   } catch (error) {
+    if (sendAssignmentError(res, error)) return;
     console.error(error);
     return res.status(500).json({ success: false, message: 'Server error' });
   }

@@ -185,6 +185,21 @@ router.put('/coverage-request/:id/status', verifyToken, async (req, res) => {
         });
     }
 
+    // Ownership check: a client may only transition their own requests, so a
+    // foreign token can never drive another client's assignment lifecycle.
+    const client = await Client.findByUserId(req.user.id);
+    if (!client) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Client profile not found' });
+    }
+    const existing = await CoverageRequest.findById(req.params.id, client.id);
+    if (!existing) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Request not found' });
+    }
+
     const updated = await CoverageRequest.updateStatus(
       req.params.id,
       status,

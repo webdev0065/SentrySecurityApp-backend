@@ -57,7 +57,11 @@ class Site {
 
   static async findByAgencyId(agencyId) {
     const result = await pool.query(
-      'SELECT * FROM sites WHERE agency_id = $1 ORDER BY created_at DESC',
+      `SELECT s.*, cr.guards_needed AS guard_capacity
+       FROM sites s
+       LEFT JOIN coverage_requests cr ON cr.id = s.source_coverage_request_id
+       WHERE s.agency_id = $1
+       ORDER BY s.created_at DESC`,
       [agencyId],
     );
     return result.rows;
@@ -101,7 +105,10 @@ class Site {
   }
   static async findById(id, agencyId) {
     const result = await pool.query(
-      'SELECT * FROM sites WHERE id = $1 AND agency_id = $2',
+      `SELECT s.*, cr.guards_needed AS guard_capacity
+       FROM sites s
+       LEFT JOIN coverage_requests cr ON cr.id = s.source_coverage_request_id
+       WHERE s.id = $1 AND s.agency_id = $2`,
       [id, agencyId],
     );
     return result.rows[0];
