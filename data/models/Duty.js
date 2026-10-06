@@ -11,6 +11,21 @@ class Duty {
     return result.rows[0];
   }
 
+  /**
+   * Most recent duty session regardless of status — the anchor for the 24-hour
+   * duty cycle (eligibility is evaluated from clock_in_at timestamps, never
+   * from calendar dates, so overnight shifts are unaffected).
+   */
+  static async findLatestLog(guardId) {
+    const result = await pool.query(
+      `SELECT * FROM duty_logs
+       WHERE guard_id = $1
+       ORDER BY clock_in_at DESC LIMIT 1`,
+      [guardId]
+    );
+    return result.rows[0];
+  }
+
   static async clockIn({ guardId, siteId, agencyId, photoUrl }) {
     const result = await pool.query(
       `INSERT INTO duty_logs (guard_id, site_id, agency_id, clock_in_photo)

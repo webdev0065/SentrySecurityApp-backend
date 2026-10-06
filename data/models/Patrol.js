@@ -22,13 +22,16 @@ class Patrol {
   }
 
   /**
-   * Site checkpoints together with the visit state of a single guard.
+   * Site checkpoints together with the visit state of a single guard for ONE
+   * duty session.
    *
-   * Visit state is read from the patrol_scans ledger instead of the active
-   * patrol round, so a marked checkpoint stays visited after a refresh, a
-   * screen re-entry, an app restart and after its round has been completed.
+   * Completion belongs to the duty session, never to the checkpoint itself:
+   * visits are only counted through patrol rounds linked to `dutyLogId`.
+   * With no active duty session (`dutyLogId` null) every checkpoint reads as
+   * unvisited, so an ended or new session always starts at 0/N. Historic scan
+   * rows stay in the ledger untouched.
    */
-  static async findCheckpointsWithVisitsBySiteId(siteId, guardId) {
+  static async findCheckpointsWithVisitsBySiteId(siteId, guardId, dutyLogId = null) {
     const result = await pool.query(
       `SELECT c.*,
               v.last_visited_at AS visited_at,
@@ -37,11 +40,15 @@ class Patrol {
        LEFT JOIN LATERAL (
          SELECT MAX(ps.scanned_at) AS last_visited_at
          FROM patrol_scans ps
-         WHERE ps.checkpoint_id = c.id AND ps.guard_id = $2
+         JOIN patrol_rounds pr ON pr.id = ps.round_id
+         WHERE ps.checkpoint_id = c.id
+           AND ps.guard_id = $2
+           AND $3::integer IS NOT NULL
+           AND pr.duty_log_id = $3
        ) v ON TRUE
        WHERE c.site_id = $1 AND c.is_active = true
        ORDER BY c.sequence_order ASC, c.id ASC`,
-      [siteId, guardId]
+      [siteId, guardId, dutyLogId]
     );
     return result.rows;
   }
@@ -95,23 +102,67 @@ class Patrol {
     return result.rows[0];
   }
 
-  static async findActiveRound(guardId) {
+  /**
+   * The guard's in-progress round for a specific duty session.
+   *
+   * Scoped by `dutyLogId`, rounds from other sessions — and legacy rounds
+   * without a session link — are never returned, so every new duty session
+   * starts with fresh checkpoint progress.
+   */
+  static async findActiveRound(guardId, dutyLogId) {
+    if (!dutyLogId) return null;
     const result = await pool.query(
       `SELECT * FROM patrol_rounds
-       WHERE guard_id = $1 AND status = 'in_progress'
+       WHERE guard_id = $1 AND duty_log_id = $2 AND status = 'in_progress'
        ORDER BY started_at DESC LIMIT 1`,
-      [guardId]
+      [guardId, dutyLogId]
+    );
+    return result.rows[0] || null;
+  }
+
+  static async startRound({ guardId, siteId, agencyId, totalCheckpoints, dutyLogId }) {
+    if (!dutyLogId) {
+      // A round must always belong to a duty session; unscoped rounds would
+      // leak completion state across sessions.
+      throw new Error('startRound requires an active duty session (dutyLogId)');
+    }
+    const result = await pool.query(
+      `INSERT INTO patrol_rounds (guard_id, site_id, agency_id, total_checkpoints, duty_log_id)
+       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
+      [guardId, siteId, agencyId, totalCheckpoints, dutyLogId]
     );
     return result.rows[0];
   }
 
-  static async startRound({ guardId, siteId, agencyId, totalCheckpoints }) {
-    const result = await pool.query(
-      `INSERT INTO patrol_rounds (guard_id, site_id, agency_id, total_checkpoints)
-       VALUES ($1, $2, $3, $4) RETURNING *`,
-      [guardId, siteId, agencyId, totalCheckpoints]
+  /**
+   * Closes every open round of a duty session when the guard clocks out, so
+   * the ended session can never accept another completion. Scan history rows
+   * are kept for reports and auditing.
+   */
+  static async completeRoundsForDutyLog(dutyLogId) {
+    if (!dutyLogId) return;
+    await pool.query(
+      `UPDATE patrol_rounds
+       SET status = 'completed', completed_at = NOW()
+       WHERE duty_log_id = $1 AND status = 'in_progress'`,
+      [dutyLogId]
     );
-    return result.rows[0];
+  }
+
+  /** True when this guard already completed the checkpoint in this duty session. */
+  static async findScanInDutySession({ guardId, dutyLogId, checkpointId }) {
+    if (!dutyLogId) return null;
+    const result = await pool.query(
+      `SELECT ps.*
+       FROM patrol_scans ps
+       JOIN patrol_rounds pr ON pr.id = ps.round_id
+       WHERE ps.guard_id = $1
+         AND pr.duty_log_id = $2
+         AND ps.checkpoint_id = $3
+       LIMIT 1`,
+      [guardId, dutyLogId, checkpointId]
+    );
+    return result.rows[0] || null;
   }
 
   static async completeRound(roundId) {

@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const Patrol = require('../../data/models/Patrol');
 const Guard = require('../../data/models/Guard');
+const Duty = require('../../data/models/Duty');
 const verifyToken = require('../middleware/authMiddleware');
 
 router.get('/patrol/checkpoints', verifyToken, async (req, res) => {
@@ -14,10 +15,16 @@ router.get('/patrol/checkpoints', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'No active site assignment' });
     }
 
-    // Visit state comes from the patrol_scans ledger (not from the active
-    // round) so the screen can always rebuild the persisted state.
+    // Completion belongs to the duty session, not to the checkpoint: visits
+    // are only counted for the guard's active session, and with no active
+    // session every checkpoint comes back unvisited for the next duty.
+    const activeDutyLog = await Duty.findActiveLog(guard.id);
     const [checkpoints, recentScans] = await Promise.all([
-      Patrol.findCheckpointsWithVisitsBySiteId(guard.site_id, guard.id),
+      Patrol.findCheckpointsWithVisitsBySiteId(
+        guard.site_id,
+        guard.id,
+        activeDutyLog ? activeDutyLog.id : null
+      ),
       Patrol.findRecentScansBySiteIdForGuard(guard.id, guard.site_id)
     ]);
 
@@ -46,7 +53,18 @@ router.post('/patrol/rounds/start', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'No active site assignment' });
     }
 
-    const existing = await Patrol.findActiveRound(guard.id);
+    // Rounds exist only inside a duty session: there is nothing to start
+    // while the guard is off duty.
+    const activeDutyLog = await Duty.findActiveLog(guard.id);
+    if (!activeDutyLog) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not on duty. Start your duty to complete checkpoints.',
+        code: 'DUTY_NOT_ACTIVE'
+      });
+    }
+
+    const existing = await Patrol.findActiveRound(guard.id, activeDutyLog.id);
     if (existing) {
       return res.status(409).json({
         success: false,
@@ -64,7 +82,8 @@ router.post('/patrol/rounds/start', verifyToken, async (req, res) => {
       guardId: guard.id,
       siteId: guard.site_id,
       agencyId: guard.agency_id,
-      totalCheckpoints: checkpoints.length
+      totalCheckpoints: checkpoints.length,
+      dutyLogId: activeDutyLog.id
     });
 
     return res.status(201).json({ success: true, data: { ...round, checkpoints } });
@@ -81,7 +100,13 @@ router.get('/patrol/rounds/active', verifyToken, async (req, res) => {
       return res.status(404).json({ success: false, message: 'Guard not found' });
     }
 
-    const round = await Patrol.findActiveRound(guard.id);
+    // Scoped to the active duty session: while off duty there is no active
+    // round, and rounds of finished sessions are never returned.
+    const activeDutyLog = await Duty.findActiveLog(guard.id);
+    const round = await Patrol.findActiveRound(
+      guard.id,
+      activeDutyLog ? activeDutyLog.id : null
+    );
     if (!round) {
       return res.status(200).json({ success: true, data: null, message: 'No active round' });
     }
@@ -123,6 +148,18 @@ router.post('/patrol/checkpoints/:id/scan', verifyToken, async (req, res) => {
     if (!guard) {
       return res.status(404).json({ success: false, message: 'Guard not found' });
     }
+
+    // Backend duty gate (non-negotiable): a completion is accepted only while
+    // the guard genuinely has an active duty session. The client's timer/UI
+    // state is never trusted — the duty_logs row is the source of truth.
+    const activeDutyLog = await Duty.findActiveLog(guard.id);
+    if (!activeDutyLog) {
+      return res.status(403).json({
+        success: false,
+        message: 'You are not on duty. Start your duty to complete checkpoints.',
+        code: 'DUTY_NOT_ACTIVE'
+      });
+    }
     if (!guard.site_id) {
       return res.status(400).json({ success: false, message: 'No active site assignment' });
     }
@@ -135,9 +172,23 @@ router.post('/patrol/checkpoints/:id/scan', verifyToken, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Checkpoint does not belong to your assigned site' });
     }
 
-    // Guards mark checkpoints visited directly; the round that stores the scan
-    // history is opened on demand here and stays available for agency reports.
-    let round = await Patrol.findActiveRound(guard.id);
+    // One completion per checkpoint per duty session: a repeat call reports
+    // the existing visit instead of writing a duplicate record.
+    const existingVisit = await Patrol.findScanInDutySession({
+      guardId: guard.id,
+      dutyLogId: activeDutyLog.id,
+      checkpointId: checkpoint.id
+    });
+    if (existingVisit) {
+      return res.status(409).json({
+        success: false,
+        message: 'Checkpoint already scanned in this duty session'
+      });
+    }
+
+    // The round stores this duty session's scan history and is opened on
+    // demand; rounds never carry completion into another duty session.
+    let round = await Patrol.findActiveRound(guard.id, activeDutyLog.id);
     if (round && round.site_id !== guard.site_id) {
       // Reassigned mid-round: the stale round can no longer accept scans.
       await Patrol.completeRound(round.id);
@@ -153,7 +204,8 @@ router.post('/patrol/checkpoints/:id/scan', verifyToken, async (req, res) => {
         guardId: guard.id,
         siteId: guard.site_id,
         agencyId: guard.agency_id,
-        totalCheckpoints: siteCheckpoints.length
+        totalCheckpoints: siteCheckpoints.length,
+        dutyLogId: activeDutyLog.id
       });
     }
 

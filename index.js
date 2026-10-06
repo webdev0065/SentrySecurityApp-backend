@@ -66,6 +66,17 @@ app.use('/api/agency', patrolAgencyRoutes);
 app.use('/api', planRoutes);
 app.use('/api/guard', dutyRoutes);
 app.use('/api/agency', invoiceRoutes);
-app.listen(PORT, () => {
+
+// Root-cause fix for mobile "Network request failed" duty submissions: Node
+// closes idle keep-alive sockets after 5s by default, but mobile HTTP pools
+// (OkHttp / NSURLSession) hold connections ~5x longer and reuse them for the
+// next request without validating. A duty photo submitted after a few seconds
+// at the camera landed on a socket the server had already closed, so the
+// request died in transit and never reached Express. Keep sockets alive longer
+// than the client idle window (headersTimeout must exceed keepAliveTimeout).
+const server = app.listen(PORT, () => {
   console.log(` Server running on http://localhost:${PORT}`);
 });
+server.keepAliveTimeout = 65000;
+server.headersTimeout = 66000;
+
