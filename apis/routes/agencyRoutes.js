@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const Agency = require('../../data/models/Agency');
+const ClientRating = require('../../data/models/ClientRating');
 const Notification = require('../../data/models/Notification');
 const verifyToken = require('../middleware/authMiddleware');
 
@@ -156,6 +157,33 @@ router.put('/agency/details', verifyToken, async (req, res) => {
           ? 'Email or mobile number is already registered'
           : 'Server error',
     });
+  }
+});
+
+/**
+ * GET /agency/ratings
+ * Agency-wide client rating summary (average + count) that powers the
+ * dashboard's "Client Reviews" card. The agency is resolved from the
+ * authenticated session, so an agency can only ever read its own ratings.
+ */
+router.get('/agency/ratings', verifyToken, async (req, res) => {
+  try {
+    if (req.user.account_type !== 'agency') {
+      return res
+        .status(403)
+        .json({ success: false, message: 'Agency access is required' });
+    }
+    const agency = await Agency.findByUserId(req.user.id);
+    if (!agency) {
+      return res
+        .status(404)
+        .json({ success: false, message: 'Agency details not found' });
+    }
+    const summary = await ClientRating.findSummaryForAgency(agency.id);
+    return res.status(200).json({ success: true, data: summary });
+  } catch (err) {
+    console.error(err);
+    return res.status(500).json({ success: false, message: 'Server error' });
   }
 });
 

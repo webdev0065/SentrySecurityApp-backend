@@ -42,7 +42,10 @@ const TEST_DB = 'sentry_security_duty_test';
 const DB_HOST = process.env.DB_HOST || '/tmp';
 const DB_USER = process.env.DB_USER || 'devansh';
 const DB_PORT = Number(process.env.DB_PORT || 5432);
-const PORT = Number(process.env.DUTY_TEST_PORT || 3479);
+// Default port must be unique per test file — parallel `node --test` runs
+// share 3479 with payroll.test.js, whose server wins the bind and answers
+// this suite's health check with the wrong JWT secret (401s everywhere).
+const PORT = Number(process.env.DUTY_TEST_PORT || 3480);
 const JWT_SECRET = 'duty-cycle-24h-test-secret';
 const BASE = `http://127.0.0.1:${PORT}`;
 const DAY_MS = 24 * 60 * 60 * 1000;

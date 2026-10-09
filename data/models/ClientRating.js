@@ -31,6 +31,23 @@ class ClientRating {
     return result.rows[0];
   }
 
+  /**
+   * Agency-wide rating summary for the agency dashboard's "Client Reviews"
+   * card: the average of client-level ratings (guard_id IS NULL) this agency
+   * has received, plus how many clients rated it. Guard-level ratings are
+   * excluded because they describe individual guards, not the agency.
+   */
+  static async findSummaryForAgency(agencyId) {
+    const result = await pool.query(
+      `SELECT ROUND(AVG(rating)::numeric, 1) AS average_rating,
+              COUNT(*)::int AS rating_count
+         FROM client_ratings
+        WHERE agency_id = $1 AND guard_id IS NULL`,
+      [agencyId],
+    );
+    return result.rows[0];
+  }
+
   static async findAgencySummary(clientId, agencyId) {
     const result = await pool.query(
       `SELECT

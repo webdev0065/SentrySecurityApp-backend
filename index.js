@@ -25,6 +25,7 @@ const patrolAgencyRoutes = require('./apis/routes/patrolAgencyRoute');
 const planRoutes = require('./apis/routes/planRoutes');
 const dutyRoutes = require('./apis/routes/dutyRoutes');
 const invoiceRoutes = require('./apis/routes/invoiceRoutes');
+const payrollRoutes = require('./apis/routes/payrollRoutes');
 require('./jobs/incidentEscalationJob');
 // Registering the scheduler at boot keeps the 5-minute buzzer sweep alive even
 // before any incident exists, so a backend restart mid-window still delivers the
@@ -66,6 +67,7 @@ app.use('/api/agency', patrolAgencyRoutes);
 app.use('/api', planRoutes);
 app.use('/api/guard', dutyRoutes);
 app.use('/api/agency', invoiceRoutes);
+app.use('/api/agency', payrollRoutes);
 
 // Root-cause fix for mobile "Network request failed" duty submissions: Node
 // closes idle keep-alive sockets after 5s by default, but mobile HTTP pools
