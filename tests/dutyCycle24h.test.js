@@ -158,6 +158,9 @@ before(async () => {
       DB_PORT: String(DB_PORT),
       DB_PASSWORD: process.env.DB_PASSWORD || '',
       DB_NAME: TEST_DB,
+      // Pin the spawned server to this isolated test database: an ambient
+      // DATABASE_URL (e.g. a Supabase .env) must never leak into tests.
+      DB_USE_LOCAL: '1',
       JWT_SECRET,
     },
     stdio: ['ignore', 'pipe', 'pipe'],

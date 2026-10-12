@@ -34,7 +34,24 @@ require('./jobs/notificationSoundScheduler');
 
 const app = express();
 
-app.use(cors());
+// Native React Native clients do not enforce browser CORS and authenticate with
+// an `Authorization: Bearer` header rather than cookies, so credentialed
+// cross-origin rules do not apply here. Keep the permissive default so the
+// mobile app keeps working, but allow an explicit allowlist to be pinned via
+// CORS_ALLOWED_ORIGINS (comma-separated) if a browser-based client is ever
+// added — a wildcard origin must never be combined with credentials.
+const allowedOrigins = (process.env.CORS_ALLOWED_ORIGINS || '')
+  .split(',')
+  .map(origin => origin.trim())
+  .filter(Boolean);
+
+app.use(
+  cors(
+    allowedOrigins.length > 0
+      ? { origin: allowedOrigins }
+      : undefined,
+  ),
+);
 app.use(express.json());
 
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));

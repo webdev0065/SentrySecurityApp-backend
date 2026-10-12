@@ -11,3 +11,7 @@ yarn-error.log*
 
 # Runtime uploads (duty photos, profile images, etc.)
 uploads/
+
+# Firebase service-account private key — must be supplied by the deploy
+# environment, never committed.
+config/firebase-service-account.json
